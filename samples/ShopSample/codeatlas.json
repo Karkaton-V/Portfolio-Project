@@ -1,0 +1,35 @@
+{
+  // Layers give names to groups of namespaces. A pattern ending in ".**" includes child namespaces;
+  // "project:Name" selects every type in a project instead.
+  "layers": {
+    "Domain": ["Shop.Domain.**"],
+    "Application": ["Shop.App.**"],
+    "Api": ["Shop.Api.**"]
+  },
+
+  "rules": [
+    {
+      "name": "Domain has no outward dependencies",
+      "from": "Domain",
+      "mayOnlyDependOn": []
+    },
+    {
+      "name": "Application does not depend on the API",
+      "from": "Application",
+      "forbid": ["Api"]
+    },
+    {
+      "name": "Services use repositories through interfaces",
+      "from": "Shop.App",
+      "forbid": ["Shop.App.Infrastructure.**"]
+    },
+    {
+      "name": "Billing does not depend on Orders",
+      "from": "Shop.Domain.Billing",
+      "forbid": ["Shop.Domain.Orders"],
+      "severity": "warning"
+    }
+  ],
+
+  "namespaceCycles": "error"
+}

@@ -1,0 +1,43 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 9.0.x
+
+      - name: Build
+        run: dotnet build CodeAtlas.sln --configuration Release
+
+      - name: Test
+        run: dotnet test CodeAtlas.sln --configuration Release --no-build
+
+      # End-to-end check: the sample solution contains deliberate violations, so `check` must
+      # find them and exit with code 3. Any other exit code means something regressed.
+      - name: Check the sample's architecture rules
+        run: |
+          dotnet build samples/ShopSample/ShopSample.sln
+          set +e
+          dotnet run --project src/CodeAtlas.Cli --configuration Release --no-build -- \
+            check samples/ShopSample/ShopSample.sln --sarif codeatlas.sarif
+          code=$?
+          set -e
+          if [ "$code" -ne 3 ]; then
+            echo "Expected exit code 3 (violations found) but got $code"
+            exit 1
+          fi
+
+      - name: Upload SARIF report
+        uses: actions/upload-artifact@v4
+        with:
+          name: codeatlas-sarif
+          path: codeatlas.sarif

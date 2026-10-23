@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <AssemblyName>codeatlas</AssemblyName>
+    <PackAsTool>true</PackAsTool>
+    <ToolCommandName>codeatlas</ToolCommandName>
+    <PackageId>CodeAtlas.Tool</PackageId>
+    <Version>0.3.0</Version>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\CodeAtlas.Analysis\CodeAtlas.Analysis.csproj" />
+    <ProjectReference Include="..\CodeAtlas.Core\CodeAtlas.Core.csproj" />
+  </ItemGroup>
+
+</Project>
