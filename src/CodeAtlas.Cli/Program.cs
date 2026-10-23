@@ -16,6 +16,7 @@ try
         ["cycles", .. var rest] => await CyclesCommand.RunAsync(rest, cancellation.Token),
         ["impact", .. var rest] => await ImpactCommand.RunAsync(rest, cancellation.Token),
         ["check", .. var rest] => await CheckCommand.RunAsync(rest, cancellation.Token),
+        ["report", .. var rest] => await ReportCommand.RunAsync(rest, cancellation.Token),
         ["-h" or "--help" or "help", ..] => PrintUsage(Console.Out, ExitCodes.Success),
         _ => PrintUsage(Console.Error, ExitCodes.UsageError),
     };
@@ -46,6 +47,7 @@ static int PrintUsage(TextWriter writer, int exitCode)
           codeatlas cycles  <input> [--level namespace|type]
           codeatlas impact  <input> <type> [--depth <n>] [--kinds <kind,...>]
           codeatlas check   <input> [--config <codeatlas.json>] [--sarif <file>] [--path-prefix <dir>]
+          codeatlas report  <input> [-o <report.html>] [--config <codeatlas.json>] [--title <text>]
 
         <solution> is a .sln, .slnx, or .csproj file. <input> is a solution or a graph.json written by
         `analyze -o`; reusing a saved graph skips the slow solution load.
@@ -55,6 +57,7 @@ static int PrintUsage(TextWriter writer, int exitCode)
           cycles     Find groups of namespaces (or types) that depend on each other in a loop
           impact     List the types that depend on <type>, directly or indirectly
           check      Enforce the architecture rules in codeatlas.json (default: next to <input>)
+          report     Write a self-contained interactive HTML report (opens offline in any browser)
 
         Exit codes:
           0 success   1 bad arguments or config   2 analysis failed   3 rule violations (errors)

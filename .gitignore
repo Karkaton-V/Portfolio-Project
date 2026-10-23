@@ -488,3 +488,6 @@ samples/**/graph.json
 
 # The template's macOS "*.app" rule matches this folder on case-insensitive file systems
 !samples/ShopSample/Shop.App/
+
+# Reports written by `codeatlas report`
+codeatlas-report.html

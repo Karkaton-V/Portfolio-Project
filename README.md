@@ -1,7 +1,8 @@
 # CodeAtlas
 
 A command-line tool that maps the dependencies inside a C# solution using the Roslyn compiler APIs, then
-finds dependency cycles, answers "what could this change affect?", and enforces architecture rules in CI.
+finds dependency cycles, answers "what could this change affect?", enforces architecture rules in CI, and
+writes an interactive HTML report you can explore in any browser.
 
 CodeAtlas loads a `.sln`, `.slnx`, or `.csproj`, finds every type the solution declares, and records how those
 types depend on each other, from inheritance and constructor injection down to individual method calls.
@@ -15,6 +16,7 @@ dotnet run --project src/CodeAtlas.Cli -- analyze samples/ShopSample/ShopSample.
 dotnet run --project src/CodeAtlas.Cli -- cycles graph.json
 dotnet run --project src/CodeAtlas.Cli -- impact graph.json IOrderRepository
 dotnet run --project src/CodeAtlas.Cli -- check samples/ShopSample/ShopSample.sln --sarif results.sarif
+dotnet run --project src/CodeAtlas.Cli -- report samples/ShopSample/ShopSample.sln -o report.html
 ```
 
 `samples/ShopSample` is a small three-project solution with deliberate design problems, so the commands have
@@ -53,6 +55,7 @@ Direct dependents
 | `cycles <input>` | `--level namespace` (default) or `--level type` |
 | `impact <input> <type>` | `--depth <n>` limit the steps; `--kinds Calls,Implements` follow only some dependency kinds |
 | `check <input>` | `--config <file>` (default: `codeatlas.json` next to the input); `--sarif <file>`; `--path-prefix <dir>` |
+| `report <input>` | `-o <file>` (default `codeatlas-report.html`); `--config <file>` to include rule results; `--title <text>` |
 
 `<input>` is a solution or a saved `graph.json`. `<type>` can be a full name (`Shop.Domain.Orders.Order`), a
 simple name (`Order`), or a namespace suffix (`Orders.Order`). If the name is ambiguous, CodeAtlas lists the matches.
@@ -133,6 +136,26 @@ To show violations in code scanning, add this after the `check` step in a workfl
 `.github/workflows/ci.yml` builds and tests CodeAtlas, then runs `check` on the sample and fails unless it
 finds the sample's deliberate violations (exit code 3).
 
+## Interactive report
+
+`codeatlas report` writes one self-contained HTML file. The page, its script, Cytoscape.js, and the graph data are
+all inlined, so it opens offline, with no server, and can be attached to a CI run or emailed.
+
+- **Namespace map** (the default): namespaces sized by type count, with edges weighted by how many
+  dependencies they carry. Namespace cycles are drawn in red. Drawing hundreds of types at once is unreadable,
+  so the report starts here and lets you drill in.
+- **Type view**: double-click a namespace to see its types, plus faded neighbors from other namespaces for context.
+  Shapes and colors show the kind of type; dashed edges are inheritance or interface implementation.
+- **Details**: click any type for its source locations, coupling (used by, uses, instability), and what it depends
+  on and what depends on it, with the kinds of each dependency.
+- **Impact**: "Show impact" redraws the graph as rings around the type: direct dependents, then 2 steps away, and so on.
+- **Health**: rule results from `codeatlas.json` (when present), namespace cycles, and the most connected types.
+- **Filters**: hide noisy dependency kinds (like `References`) or whole projects; search finds any type by name.
+
+The analysis (cycles, coupling, rule results) runs in C#. The page's script only draws and filters. Every name is
+inserted as text rather than HTML, and the embedded JSON escapes `<`, so a type name can't inject markup into
+the page (there's a test with a hostile name). The page supports light and dark mode and works at phone width.
+
 ## How it works
 
 ### Extracting the graph
@@ -185,13 +208,15 @@ correctly stops at `OrderService` instead of reaching the controller. Reflection
 
 ```
 src/
-  CodeAtlas.Core/        Graph model, JSON, graph algorithms (cycles, impact), and architecture rules + SARIF;
-                         no Roslyn dependency
+  CodeAtlas.Core/        Graph model, JSON, graph algorithms (cycles, impact, coupling), and architecture
+                         rules + SARIF; no Roslyn dependency
   CodeAtlas.Analysis/    Roslyn extraction: SolutionAnalyzer -> GraphBuilder -> Dependency/BodyDependencyExtractor
+  CodeAtlas.Report/      HTML report writer; Assets/ holds the page, styles, viewer script, and vendored Cytoscape.js
   CodeAtlas.Cli/         The `codeatlas` command
 tests/
   CodeAtlas.Analysis.Tests/   Extraction tests that compile C# source strings in memory (no MSBuild needed)
   CodeAtlas.Core.Tests/       Algorithm and rules tests on small hand-built graphs
+  CodeAtlas.Report.Tests/     Report tests: self-contained output, embedded data, escaping of hostile names
 samples/
   ShopSample/            A small solution with deliberate rule violations and a codeatlas.json, for demos and CI
 ```
@@ -210,5 +235,10 @@ The target framework is set once in `Directory.Build.props`.
 - [x] **v0.1** Load solutions, extract types and declaration-level dependencies, export JSON
 - [x] **v0.2** Method-body dependencies, namespace and type cycle detection (iterative Tarjan), change-impact analysis
 - [x] **v0.3** `codeatlas check`: architecture rules from a config file, non-zero exit code, SARIF output, GitHub Actions CI
-- [ ] **v0.4** Self-contained interactive HTML report (Cytoscape.js)
-- [ ] **Later** Coupling metrics, pull-request impact (`--since main`), analysis history across commits, retarget to .NET 10 LTS
+- [x] **v0.4** Self-contained interactive HTML report (Cytoscape.js) with coupling metrics
+- [ ] **Later** Pull-request impact (`--since main`), analysis history across commits, retarget to .NET 10 LTS
+
+## Third-party code
+
+The HTML report inlines [Cytoscape.js](https://js.cytoscape.org/) 3.34.3 (MIT License, Copyright (c) 2016-2026
+The Cytoscape Consortium); see `src/CodeAtlas.Report/Assets/cytoscape.LICENSE`.

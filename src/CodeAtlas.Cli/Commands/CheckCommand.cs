@@ -6,7 +6,7 @@ namespace CodeAtlas.Cli.Commands;
 
 internal static class CheckCommand
 {
-    private const string DefaultConfigFileName = "codeatlas.json";
+    internal const string DefaultConfigFileName = "codeatlas.json";
 
     public static async Task<int> RunAsync(IReadOnlyList<string> args, CancellationToken cancellationToken)
     {
@@ -39,7 +39,7 @@ internal static class CheckCommand
         return result.ErrorCount > 0 ? ExitCodes.RuleViolations : ExitCodes.Success;
     }
 
-    private static async Task<ArchitectureConfig> LoadConfigAsync(string path, CancellationToken cancellationToken)
+    internal static async Task<ArchitectureConfig> LoadConfigAsync(string path, CancellationToken cancellationToken)
     {
         if (!File.Exists(path))
         {
@@ -126,7 +126,7 @@ internal static class CheckCommand
         return null;
     }
 
-    private static string ToolVersion()
+    internal static string ToolVersion()
     {
         var version = typeof(CheckCommand).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion ?? "0.0.0";
         var metadata = version.IndexOf('+'); // "0.3.0+<commit sha>"

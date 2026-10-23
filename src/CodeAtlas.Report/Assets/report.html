@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="generator" content="CodeAtlas">
+  <title>{{TITLE}} · CodeAtlas</title>
+  <style>/*{{STYLES}}*/</style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand"><span class="logo" aria-hidden="true"></span>CodeAtlas</div>
+    <h1 id="title"></h1>
+    <dl class="stats" id="stats"></dl>
+  </header>
+
+  <div class="layout">
+    <aside class="sidebar">
+      <section class="controls">
+        <div class="segmented" role="group" aria-label="Graph level">
+          <button type="button" id="level-namespace" aria-pressed="true">Namespaces</button>
+          <button type="button" id="level-type" aria-pressed="false">Types</button>
+        </div>
+        <div class="scope" id="scope"></div>
+        <label class="search">
+          <span class="visually-hidden">Find a type</span>
+          <input id="search" type="search" placeholder="Find a type…" autocomplete="off" spellcheck="false">
+        </label>
+        <ul class="results" id="search-results" hidden></ul>
+      </section>
+
+      <nav class="tabs" role="tablist" aria-label="Panels">
+        <button type="button" role="tab" data-tab="details" aria-selected="true">Details</button>
+        <button type="button" role="tab" data-tab="health" aria-selected="false">Health <span class="badge" id="health-badge" hidden></span></button>
+        <button type="button" role="tab" data-tab="filters" aria-selected="false">Filters</button>
+      </nav>
+      <section class="tab-panel" id="tab-details" role="tabpanel"></section>
+      <section class="tab-panel" id="tab-health" role="tabpanel" hidden></section>
+      <section class="tab-panel" id="tab-filters" role="tabpanel" hidden></section>
+    </aside>
+
+    <main class="stage">
+      <div id="cy" aria-label="Dependency graph"></div>
+      <div class="empty" id="empty" hidden></div>
+      <div class="toolbar">
+        <button type="button" id="fit" title="Fit the graph to the window">Fit</button>
+        <button type="button" id="relayout" title="Run the layout again">Re-layout</button>
+      </div>
+      <div class="legend" id="legend"></div>
+    </main>
+  </div>
+
+  <!-- Cytoscape.js (MIT License, Copyright (c) 2016-2026 The Cytoscape Consortium) -->
+  <script>/*{{CYTOSCAPE}}*/</script>
+  <script id="codeatlas-data" type="application/json">/*{{DATA}}*/</script>
+  <script>/*{{SCRIPT}}*/</script>
+</body>
+</html>

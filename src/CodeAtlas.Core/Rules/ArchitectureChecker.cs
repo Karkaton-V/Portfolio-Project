@@ -6,7 +6,13 @@ namespace CodeAtlas.Core.Rules;
 public sealed record RuleInfo(string Id, string Name, string Description, RuleSeverity Severity);
 
 /// <param name="Location">Where to point the reader: the first offending line, or the source type's declaration.</param>
-public sealed record RuleViolation(string RuleId, RuleSeverity Severity, string Message, SourceLocation? Location);
+/// <param name="NodeId">The type that breaks the rule, so a viewer can jump to it.</param>
+public sealed record RuleViolation(
+    string RuleId,
+    RuleSeverity Severity,
+    string Message,
+    SourceLocation? Location,
+    string? NodeId = null);
 
 /// <param name="Rules">Every rule that was checked, including those with no violations.</param>
 /// <param name="Warnings">Problems with the config itself, such as a selector that matches nothing.</param>
@@ -64,7 +70,8 @@ public static class ArchitectureChecker
                     rule.RuleId,
                     rule.Severity,
                     $"{source.FullName} depends on {target.FullName} ({string.Join(", ", edges.Select(e => e.Kind))}).",
-                    edges.Select(e => e.Location).FirstOrDefault(l => l is not null) ?? source.Locations.FirstOrDefault()));
+                    edges.Select(e => e.Location).FirstOrDefault(l => l is not null) ?? source.Locations.FirstOrDefault(),
+                    source.Id));
             }
         }
 
@@ -88,7 +95,8 @@ public static class ArchitectureChecker
                     $"Namespace cycle: {string.Join(" -> ", cycle.ExamplePath.Select(DisplayNamespace))}. " +
                     $"{cycle.Evidence.Count} dependencies are involved, including " +
                     $"{nodes[firstHop.SourceId].FullName} -> {nodes[firstHop.TargetId].FullName} ({firstHop.Kind}).",
-                    firstHop.Location ?? nodes[firstHop.SourceId].Locations.FirstOrDefault()));
+                    firstHop.Location ?? nodes[firstHop.SourceId].Locations.FirstOrDefault(),
+                    firstHop.SourceId));
             }
         }
 

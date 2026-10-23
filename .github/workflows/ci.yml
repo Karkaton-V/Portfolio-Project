@@ -36,8 +36,15 @@ jobs:
             exit 1
           fi
 
-      - name: Upload SARIF report
+      - name: Generate the sample's HTML report
+        run: |
+          dotnet run --project src/CodeAtlas.Cli --configuration Release --no-build -- \
+            report samples/ShopSample/ShopSample.sln -o codeatlas-report.html
+
+      - name: Upload reports
         uses: actions/upload-artifact@v4
         with:
-          name: codeatlas-sarif
-          path: codeatlas.sarif
+          name: codeatlas-reports
+          path: |
+            codeatlas.sarif
+            codeatlas-report.html
