@@ -9,7 +9,16 @@
 </head>
 <body>
   <header class="topbar">
-    <div class="brand"><span class="logo" aria-hidden="true"></span>CodeAtlas</div>
+    <div class="brand">
+      <svg class="logo" viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M6 7l6 10M18 7l-6 10M6 7h12" />
+        <circle cx="6" cy="7" r="2.6" />
+        <circle cx="18" cy="7" r="2.6" />
+        <circle cx="12" cy="17" r="2.6" />
+      </svg>
+      <span>CodeAtlas</span>
+    </div>
+    <span class="divider" aria-hidden="true"></span>
     <h1 id="title"></h1>
     <dl class="stats" id="stats"></dl>
   </header>
@@ -22,12 +31,16 @@
           <button type="button" id="level-namespace" aria-pressed="false">Namespaces</button>
           <button type="button" id="level-type" aria-pressed="false">Types</button>
         </div>
+        <div class="search-wrap">
+          <label class="search">
+            <span class="visually-hidden">Find a type</span>
+            <svg class="search-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5" /><path d="M16 16l4.5 4.5" /></svg>
+            <input id="search" type="search" placeholder="Find a type…" autocomplete="off" spellcheck="false">
+            <kbd>/</kbd>
+          </label>
+          <ul class="results" id="search-results" hidden></ul>
+        </div>
         <div class="scope" id="scope"></div>
-        <label class="search">
-          <span class="visually-hidden">Find a type</span>
-          <input id="search" type="search" placeholder="Find a type…" autocomplete="off" spellcheck="false">
-        </label>
-        <ul class="results" id="search-results" hidden></ul>
       </section>
 
       <nav class="tabs" role="tablist" aria-label="Panels">
@@ -43,9 +56,19 @@
     <main class="stage">
       <div id="cy" aria-label="Dependency graph"></div>
       <div class="empty" id="empty" hidden></div>
-      <div class="toolbar">
-        <button type="button" id="fit" title="Fit the graph to the window">Fit</button>
-        <button type="button" id="relayout" title="Run the layout again">Re-layout</button>
+      <div class="controls-float" role="toolbar" aria-label="Graph view">
+        <button type="button" id="zoom-in" title="Zoom in" aria-label="Zoom in">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 6v12M6 12h12" /></svg>
+        </button>
+        <button type="button" id="zoom-out" title="Zoom out" aria-label="Zoom out">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 12h12" /></svg>
+        </button>
+        <button type="button" id="fit" title="Fit to window" aria-label="Fit to window">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" /></svg>
+        </button>
+        <button type="button" id="relayout" title="Re-run the layout" aria-label="Re-run the layout">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 12a7 7 0 1 1-2.05-4.95M19 5v4h-4" /></svg>
+        </button>
       </div>
       <div class="legend" id="legend"></div>
     </main>

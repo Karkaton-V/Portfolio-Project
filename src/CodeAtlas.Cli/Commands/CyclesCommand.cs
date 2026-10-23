@@ -33,12 +33,12 @@ internal static class CyclesCommand
             return ExitCodes.Success;
         }
 
-        Console.WriteLine($"Found {cycles.Count} {levelName} cycle(s).");
+        Console.WriteLine(Ansi.Red($"Found {cycles.Count} {levelName} cycle(s)."));
         for (var i = 0; i < cycles.Count; i++)
         {
             var cycle = cycles[i];
             Console.WriteLine();
-            Console.WriteLine($"Cycle {i + 1}: {cycle.Members.Count} {levelName}s");
+            Console.WriteLine(Ansi.Bold($"Cycle {i + 1}: {cycle.Members.Count} {levelName}s"));
             foreach (var member in cycle.Members)
             {
                 Console.WriteLine($"  {MemberName(member)}");

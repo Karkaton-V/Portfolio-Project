@@ -65,7 +65,7 @@ internal static class CheckCommand
 
         foreach (var warning in result.Warnings)
         {
-            Console.WriteLine($"Config warning: {warning}");
+            Console.WriteLine($"{Ansi.Yellow("Config warning:")} {warning}");
         }
 
         var violationsByRule = result.Violations.ToLookup(v => v.RuleId);
@@ -76,11 +76,11 @@ internal static class CheckCommand
 
             if (violations.Count == 0)
             {
-                Console.WriteLine($"[PASS] {rule.Name}");
+                Console.WriteLine($"{Ansi.Green("[PASS]")} {rule.Name}");
                 continue;
             }
 
-            var status = rule.Severity == RuleSeverity.Error ? "[FAIL]" : "[WARN]";
+            var status = rule.Severity == RuleSeverity.Error ? Ansi.Red("[FAIL]") : Ansi.Yellow("[WARN]");
             Console.WriteLine($"{status} {rule.Name} ({violations.Count} violation(s))");
             Console.WriteLine($"       {rule.Description}");
             foreach (var violation in violations)
@@ -95,8 +95,8 @@ internal static class CheckCommand
 
         Console.WriteLine();
         Console.WriteLine(result.ErrorCount > 0
-            ? $"Check failed: {result.ErrorCount} error(s), {result.WarningCount} warning(s)."
-            : $"Check passed with {result.WarningCount} warning(s).");
+            ? Ansi.Red($"Check failed: {result.ErrorCount} error(s), {result.WarningCount} warning(s).")
+            : Ansi.Green($"Check passed with {result.WarningCount} warning(s)."));
     }
 
     /// <summary>

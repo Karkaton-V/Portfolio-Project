@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using CodeAtlas.Core;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.MSBuild;
@@ -12,13 +13,14 @@ namespace CodeAtlas.Analysis;
 public static class SolutionAnalyzer
 {
     /// <param name="path">A <c>.sln</c>, <c>.slnx</c>, or <c>.csproj</c> file.</param>
-    /// <param name="progress">Receives the name of each project as it is analyzed.</param>
+    /// <param name="progress">Receives status messages, including how long each phase took.</param>
     public static async Task<DependencyGraph> AnalyzeAsync(
         string path,
         IProgress<string>? progress = null,
         CancellationToken cancellationToken = default)
     {
         var fullPath = Path.GetFullPath(path);
+        var clock = Stopwatch.StartNew();
         using var workspace = MSBuildWorkspace.Create();
 
         switch (Path.GetExtension(fullPath).ToLowerInvariant())
@@ -44,25 +46,50 @@ public static class SolutionAnalyzer
 
         var projects = workspace.CurrentSolution.Projects
             .Where(p => p.Language == LanguageNames.CSharp)
-            .OrderBy(p => p.Name, StringComparer.Ordinal);
+            .OrderBy(p => p.Name, StringComparer.Ordinal)
+            .ToList();
+        progress?.Report($"Loaded {projects.Count} projects in {Seconds(clock)}");
 
-        foreach (var project in projects)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            progress?.Report(project.Name);
-
-            var compilation = await project.GetCompilationAsync(cancellationToken);
-            if (compilation is null)
+        // Compile and extract every project in parallel. Projects that reference each other share Roslyn's
+        // cached compilations, so this doesn't redo work. Results land in a fixed slot per project and are
+        // merged in name order, which keeps the graph identical from run to run.
+        var phase = Stopwatch.StartNew();
+        var extractions = new ProjectExtraction?[projects.Count];
+        await Parallel.ForEachAsync(
+            Enumerable.Range(0, projects.Count),
+            new ParallelOptions { CancellationToken = cancellationToken },
+            async (index, token) =>
             {
-                builder.AddWarning($"Could not create a compilation for {project.Name}; it was skipped.");
-                continue;
-            }
+                var project = projects[index];
+                var compilation = await project.GetCompilationAsync(token);
+                if (compilation is not null)
+                {
+                    extractions[index] = builder.Extract(compilation, ProjectLabel(project), token);
+                }
 
-            builder.AddCompilation(compilation, ProjectLabel(project));
+                progress?.Report($"Analyzed {project.Name}");
+            });
+
+        for (var index = 0; index < projects.Count; index++)
+        {
+            if (extractions[index] is { } extraction)
+            {
+                builder.Add(extraction);
+            }
+            else
+            {
+                builder.AddWarning($"Could not create a compilation for {projects[index].Name}; it was skipped.");
+            }
         }
 
-        return builder.Build();
+        var graph = builder.Build();
+        progress?.Report(
+            $"Compiled and extracted dependencies in {phase.Elapsed.TotalSeconds:0.0} s ({Seconds(clock)} total, " +
+            $"using up to {Environment.ProcessorCount} threads)");
+        return graph;
     }
+
+    private static string Seconds(Stopwatch clock) => $"{clock.Elapsed.TotalSeconds:0.0} s";
 
     /// <summary>Multi-targeted projects load once per framework, named like "Orders.Api(net9.0)". Strip the suffix.</summary>
     private static string ProjectLabel(Project project)

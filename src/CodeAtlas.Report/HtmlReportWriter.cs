@@ -39,17 +39,50 @@ public static partial class HtmlReportWriter
 
     public static string Write(DependencyGraph graph, ReportOptions options)
     {
+        // Edges are by far the most numerous records, and as objects each one repeated two long type ids
+        // and a file path (~350 bytes). They're written as number arrays that point into the node, kind,
+        // and file tables instead (~20 bytes); the page's script expands them when it loads.
+        var nodeIndex = graph.Nodes.Select((node, i) => (node.Id, i)).ToDictionary(n => n.Id, n => n.i, StringComparer.Ordinal);
+        var kinds = Enum.GetNames<DependencyKind>();
+        var files = new List<string>();
+        var fileIndex = new Dictionary<string, int>(StringComparer.Ordinal);
+
+        int FileId(string path)
+        {
+            if (!fileIndex.TryGetValue(path, out var id))
+            {
+                id = files.Count;
+                fileIndex[path] = id;
+                files.Add(path);
+            }
+
+            return id;
+        }
+
+        int[] Location(SourceLocation location) => [FileId(location.FilePath), location.Line];
+
         var data = new
         {
             options.Title,
             options.ToolVersion,
             GeneratedAt = options.GeneratedAt.ToString("u"),
-            graph.Nodes,
-            graph.Edges,
+            Kinds = kinds,
+            Files = files, // the same list instance; building Nodes and Edges below fills it in
+            Nodes = graph.Nodes.Select(n => new
+            {
+                n.Id, n.Name, n.FullName, n.Namespace, n.Project, n.Kind,
+                Locations = n.Locations.Select(Location).ToList(),
+            }).ToList(),
+            // [source, target, kind] or [source, target, kind, file, line]
+            Edges = graph.Edges.Select(e => e.Location is null
+                ? new[] { nodeIndex[e.SourceId], nodeIndex[e.TargetId], (int)e.Kind }
+                : [nodeIndex[e.SourceId], nodeIndex[e.TargetId], (int)e.Kind, .. Location(e.Location)]).ToList(),
             graph.Warnings,
             NamespaceCycles = CycleDetector.FindCycles(graph, CycleLevel.Namespace)
                 .Select(c => new { c.Members, c.ExamplePath, EvidenceCount = c.Evidence.Count }),
-            Coupling = CouplingMetrics.Calculate(graph),
+            // [node, incoming, outgoing, instability]
+            Coupling = CouplingMetrics.Calculate(graph)
+                .Select(c => new double[] { nodeIndex[c.NodeId], c.Incoming, c.Outgoing, c.Instability }),
             options.Check,
         };
 

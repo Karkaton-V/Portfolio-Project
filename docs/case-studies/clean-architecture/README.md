@@ -9,7 +9,7 @@ test CodeAtlas on code I didn't write, and to see whether the template follows i
 | Commit analyzed | `968abf7` (2026-10-21) |
 | Solution | `CleanArchitecture.slnx`: 13 projects, including .NET Aspire hosts and four test projects |
 | Graph | 144 types and 388 dependencies across 12 projects with types (50 namespaces) |
-| Analysis time | About 1 minute on a laptop, most of it MSBuild loading the projects |
+| Analysis time | About 14 s on a laptop: ~10.5 s MSBuild loading the projects, ~3.6 s compiling and extracting in parallel (the first run after a reboot takes longer while MSBuild warms up) |
 | Rules | [`codeatlas.json`](codeatlas.json) in this folder |
 
 ```bash
@@ -19,7 +19,15 @@ codeatlas check graph.json --config codeatlas.json
 codeatlas report graph.json --config codeatlas.json -o report.html
 ```
 
+The report draws the projects as a layered diagram computed from the code alone: functional tests, then Web,
+Infrastructure, Application, and Domain at the bottom. It's the textbook Clean Architecture picture.
+
 ![Project-level view of the CleanArchitecture solution](projects.png)
+
+Drilling into namespaces keeps the same layering and project colors. The Domain Entities ↔ Events cycle shows
+in red near the bottom:
+
+![Namespace-level view of the CleanArchitecture solution](namespaces.png)
 
 ## Findings
 
@@ -79,7 +87,8 @@ Each is now fixed, and the first has a regression test:
    `impact DependencyInjection` answered "use a full name" and then listed three identical full names. It now
    shows each match's project and its unique ID.
 3. **The namespace map didn't scale.** With 50 namespaces (every feature has its own), the default namespace view
-   was an unreadable cloud of tiny nodes. The report now opens on a **Projects** level when a solution has more than one
+   was an unreadable cloud of tiny nodes (and the force-directed layout stacked the many small clusters into a thin
+   column). The report now draws projects and namespaces as a layered diagram and opens on a **Projects** level when a solution has more than one
    project. In layered solutions, projects *are* the layers, so the first screen is the architecture diagram
    (above), and you double-click to drill into namespaces and then types.
 

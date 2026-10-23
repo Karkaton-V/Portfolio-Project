@@ -68,14 +68,38 @@ public class HtmlReportWriterTests
         Assert.Equal("Shop", data.GetProperty("title").GetString());
         Assert.Equal("9.9.9", data.GetProperty("toolVersion").GetString());
         Assert.Equal(3, data.GetProperty("nodes").GetArrayLength());
-        Assert.Equal("Property", data.GetProperty("edges")[0].GetProperty("kind").GetString());
 
         var cycle = Assert.Single(data.GetProperty("namespaceCycles").EnumerateArray());
         Assert.Equal(2, cycle.GetProperty("evidenceCount").GetInt32());
 
+        // Coupling rows are [node index, incoming, outgoing, instability].
         var mostConnected = data.GetProperty("coupling")[0];
-        Assert.Equal("Shop.Orders.Order", mostConnected.GetProperty("nodeId").GetString());
-        Assert.Equal(2, mostConnected.GetProperty("incoming").GetInt32());
+        Assert.Equal("Shop.Orders.Order", data.GetProperty("nodes")[mostConnected[0].GetInt32()].GetProperty("id").GetString());
+        Assert.Equal(2, mostConnected[1].GetInt32());
+    }
+
+    [Fact]
+    public void Writes_edges_as_compact_rows_that_point_into_the_node_kind_and_file_tables()
+    {
+        var located = new DependencyGraph
+        {
+            Nodes = Graph.Nodes,
+            Edges = [new CodeEdge("Shop.Billing.Invoice", "Shop.Orders.Order", DependencyKind.Property, new SourceLocation("Billing/Invoice.cs", 7))],
+        };
+
+        var data = EmbeddedData(Write(located));
+        var row = data.GetProperty("edges")[0].EnumerateArray().Select(v => v.GetInt32()).ToArray();
+
+        // [source, target, kind, file, line]
+        Assert.Equal(5, row.Length);
+        Assert.Equal("Shop.Billing.Invoice", data.GetProperty("nodes")[row[0]].GetProperty("id").GetString());
+        Assert.Equal("Shop.Orders.Order", data.GetProperty("nodes")[row[1]].GetProperty("id").GetString());
+        Assert.Equal("Property", data.GetProperty("kinds")[row[2]].GetString());
+        Assert.Equal("Billing/Invoice.cs", data.GetProperty("files")[row[3]].GetString());
+        Assert.Equal(7, row[4]);
+
+        // Locations without a file are shortened to [source, target, kind].
+        Assert.Equal(3, EmbeddedData(Write(Graph)).GetProperty("edges")[0].GetArrayLength());
 
         Assert.False(data.TryGetProperty("check", out _)); // no config, so no rule results
     }

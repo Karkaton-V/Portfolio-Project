@@ -95,14 +95,14 @@ internal static class GraphInput
 
     private sealed class ConsoleProgress : IProgress<string>
     {
-        public void Report(string projectName) => Console.Error.WriteLine($"  Analyzing {projectName}");
+        public void Report(string message) => Console.Error.WriteLine($"  {message}");
     }
 }
 
 internal static class Display
 {
     public static string Location(SourceLocation? location) =>
-        location is null ? "" : $"{location.FilePath}:{location.Line}";
+        location is null ? "" : Ansi.Dim($"{location.FilePath}:{location.Line}");
 
     public static string Namespace(string name) => name.Length == 0 ? "(global namespace)" : name;
 }

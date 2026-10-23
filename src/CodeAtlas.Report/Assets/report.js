@@ -3,7 +3,26 @@
 (() => {
   'use strict';
 
-  const data = JSON.parse(document.getElementById('codeatlas-data').textContent);
+  const data = expand(JSON.parse(document.getElementById('codeatlas-data').textContent));
+
+  // The C# side writes edges and coupling as compact number arrays that point into the node, kind,
+  // and file tables. Turn them back into objects once, up front.
+  function expand(raw) {
+    const location = loc => (loc ? { filePath: raw.files[loc[0]], line: loc[1] } : null);
+    const nodes = raw.nodes.map(n => ({ ...n, locations: n.locations.map(location) }));
+    return {
+      ...raw,
+      nodes,
+      edges: raw.edges.map(([source, target, kind, file, line]) => ({
+        sourceId: nodes[source].id,
+        targetId: nodes[target].id,
+        kind: raw.kinds[kind],
+        location: file === undefined ? null : location([file, line]),
+      })),
+      coupling: raw.coupling.map(([node, incoming, outgoing, instability]) =>
+        ({ nodeId: nodes[node].id, incoming, outgoing, instability })),
+    };
+  }
 
   const ALL_KINDS = ['Inherits', 'Implements', 'ConstructorParameter', 'Field', 'Property',
     'MethodSignature', 'Instantiates', 'Calls', 'References'];
@@ -36,6 +55,16 @@
     return counts;
   }
 
+  function groupBy(items, key) {
+    const groups = new Map();
+    for (const item of items) {
+      const k = key(item);
+      if (!groups.has(k)) groups.set(k, []);
+      groups.get(k).push(item);
+    }
+    return groups;
+  }
+
   function el(tag, props = {}, ...children) {
     const node = document.createElement(tag);
     for (const [name, value] of Object.entries(props)) {
@@ -58,6 +87,22 @@
     parent.replaceChildren(...children.flat().filter(c => c !== null && c !== undefined && c !== false));
 
   const nsLabel = ns => (ns === '' ? '(global namespace)' : ns);
+
+  // Graph cards drop the solution's root namespace ("CleanArchitecture.Application.Common" shows as
+  // "Application.Common"); panels keep full names. The root is the prefix shared by the namespaces under the
+  // most common first segment, since a few outliers (e.g. Microsoft.Extensions.DependencyInjection for DI
+  // extension classes) shouldn't stop it from applying to everything else.
+  const sharedPrefix = (() => {
+    const names = [...new Set(data.nodes.map(n => n.namespace))].filter(Boolean).map(ns => ns.split('.'));
+    const roots = countBy(names, parts => parts[0]);
+    const [root, count] = [...roots].sort((a, b) => b[1] - a[1])[0] ?? [];
+    if (!root || count < 2 || count < names.length / 2) return '';
+    const family = names.filter(parts => parts[0] === root);
+    let length = 1;
+    while (family.every(parts => parts.length > length + 1 && parts[length] === family[0][length])) length++;
+    return family[0].slice(0, length).join('.') + '.';
+  })();
+  const shortNamespace = ns => (sharedPrefix && ns.startsWith(sharedPrefix) ? ns.slice(sharedPrefix.length) : nsLabel(ns));
   const plural = (n, word, many = `${word}s`) => `${n} ${n === 1 ? word : many}`;
   const dependencies = n => plural(n, 'dependency', 'dependencies');
   const formatLocation = loc => (loc ? `${loc.filePath}:${loc.line}` : '');
@@ -65,9 +110,47 @@
 
   const isVisible = node => state.projects.has(node.project);
 
+  // Projects are colored from a fixed, colorblind-checked palette (validated against both themes' canvas).
+  // Slots go to the largest projects in a fixed order and never change with filters, so a project keeps
+  // its color everywhere. Past the palette's size, projects share a neutral "other" color rather than
+  // getting generated hues that would be hard to tell apart. Red isn't in the palette: it means "cycle".
+  const PROJECT_SLOTS = 7;
+  const projectSlot = new Map(
+    [...projectCounts].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+      .map(([project], i) => [project, i < PROJECT_SLOTS ? i + 1 : 0]));
+  const projectColor = project => css(projectSlot.get(project) ? `--series-${projectSlot.get(project)}` : '--series-other');
+
+  // Blends a color into the canvas color and returns an opaque result. Cards use this for their tint
+  // instead of a translucent fill, so edges passing behind a card are hidden rather than showing through.
+  function tint(color, amount) {
+    const rgb = hex => [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16));
+    const [fg, bg] = [rgb(color), rgb(css('--canvas'))];
+    return `rgb(${fg.map((c, i) => Math.round(bg[i] + (c - bg[i]) * amount)).join(',')})`;
+  }
+
+  // Every click asks for the filtered edges (and often for who-depends-on-what), so compute them once per
+  // filter change rather than re-scanning every edge each time. Call filtersChanged() after editing filters.
+  let edgeCache = null;
+  const filtersChanged = () => { edgeCache = null; };
+
   function visibleEdges() {
-    return data.edges.filter(e =>
-      state.kinds.has(e.kind) && isVisible(nodesById.get(e.sourceId)) && isVisible(nodesById.get(e.targetId)));
+    edgeCache ??= {
+      edges: data.edges.filter(e =>
+        state.kinds.has(e.kind) && isVisible(nodesById.get(e.sourceId)) && isVisible(nodesById.get(e.targetId))),
+    };
+    return edgeCache.edges;
+  }
+
+  function incomingEdges() {
+    const cache = edgeCache ?? (visibleEdges(), edgeCache);
+    if (!cache.incoming) {
+      cache.incoming = new Map();
+      for (const e of cache.edges) {
+        if (!cache.incoming.has(e.targetId)) cache.incoming.set(e.targetId, []);
+        cache.incoming.get(e.targetId).push(e);
+      }
+    }
+    return cache.incoming;
   }
 
   function nodeClass(node) {
@@ -81,20 +164,16 @@
 
   // Breadth-first search backwards along dependency edges: Map(typeId -> distance).
   function dependentsOf(targetId) {
-    const incoming = new Map();
-    for (const e of visibleEdges()) {
-      if (!incoming.has(e.targetId)) incoming.set(e.targetId, []);
-      incoming.get(e.targetId).push(e.sourceId);
-    }
-
+    const incoming = incomingEdges();
     const distance = new Map([[targetId, 0]]);
     const queue = [targetId];
-    while (queue.length > 0) {
-      const current = queue.shift();
-      for (const dependent of incoming.get(current) || []) {
-        if (!distance.has(dependent)) {
-          distance.set(dependent, distance.get(current) + 1);
-          queue.push(dependent);
+    // Read with an index: Array.shift() is O(n), which would make the search quadratic on large graphs.
+    for (let next = 0; next < queue.length; next++) {
+      const current = queue[next];
+      for (const edge of incoming.get(current) || []) {
+        if (!distance.has(edge.sourceId)) {
+          distance.set(edge.sourceId, distance.get(current) + 1);
+          queue.push(edge.sourceId);
         }
       }
     }
@@ -121,12 +200,25 @@
       links.set(key, link);
     }
 
-    const label = kind === 'namespace' ? nsLabel : name => name;
-    const nodes = [...typeCounts].map(([group, count]) => ({
-      group: 'nodes',
-      data: { id: `${kind}:${group}`, group, label: `${label(group)}\n${plural(count, 'type')}`, size: 28 + Math.sqrt(count) * 9 },
-      classes: isInCycle(group) ? `${kind} cycle` : kind,
-    }));
+    // A group takes the color of the project most of its types belong to (a namespace can span projects).
+    const dominantProject = new Map();
+    for (const [group, members] of groupBy(types, keyOf)) {
+      dominantProject.set(group, [...countBy(members, n => n.project)].sort((a, b) => b[1] - a[1])[0][0]);
+    }
+
+    const label = kind === 'namespace' ? shortNamespace : name => name;
+    const nodes = [...typeCounts].map(([group, count]) => {
+      const text = `${label(group)}\n${plural(count, 'type')}`;
+      return {
+        group: 'nodes',
+        data: {
+          id: `${kind}:${group}`, group, label: text, project: dominantProject.get(group),
+          color: projectColor(dominantProject.get(group)), fill: tint(projectColor(dominantProject.get(group)), 0.16),
+          ...cardSize(text),
+        },
+        classes: isInCycle(group) ? `${kind} card cycle` : `${kind} card`,
+      };
+    });
 
     const edges = [...links.values()].map(link => ({
       group: 'edges',
@@ -175,7 +267,11 @@
       const classes = [nodeClass(node)];
       if (context.has(id)) classes.push('context');
       if (distances) classes.push(id === state.impactOf ? 'impact-target' : `impact-${Math.min(distances.get(id), 3)}`);
-      return { group: 'nodes', data: { id, label: node.name, size: 26, distance: distances?.get(id) ?? 0 }, classes: classes.join(' ') };
+      return {
+        group: 'nodes',
+        data: { id, label: node.name, size: 20, project: node.project, color: projectColor(node.project), distance: distances?.get(id) ?? 0 },
+        classes: classes.join(' '),
+      };
     });
 
     // Several kinds of dependency between the same two types are drawn as one edge.
@@ -199,58 +295,98 @@
   // ---------- Cytoscape ----------
 
   function graphStyle() {
+    const font = css('--font');
     return [
+      // Types: small marks colored by project, shaped by kind, labeled underneath.
       {
         selector: 'node',
         style: {
-          'background-color': css('--node-class'),
+          'background-color': 'data(color)',
           'label': 'data(label)',
           'color': css('--text'),
-          'font-family': css('--font'),
+          'font-family': font,
           'font-size': 11,
+          'font-weight': 500,
           'text-valign': 'bottom',
-          'text-margin-y': 5,
+          'text-margin-y': 6,
           'text-wrap': 'wrap',
           'text-max-width': 160,
-          'text-background-color': css('--label-bg'),
-          'text-background-opacity': 1,
-          'text-background-padding': 2,
-          'text-background-shape': 'roundrectangle',
           'width': 'data(size)',
           'height': 'data(size)',
           'border-width': 2,
-          'border-color': css('--surface'),
+          'border-color': css('--canvas'),
+          'text-outline-color': css('--canvas'),
+          'text-outline-width': 2,
+          'transition-property': 'opacity, border-width, underlay-opacity',
+          'transition-duration': 150,
+          // Nodes always draw above edges, so lines pass under boxes rather than across them.
+          'z-index-compare': 'manual',
+          'z-index': 10,
         },
       },
-      { selector: 'node.project', style: { 'background-color': css('--node-project'), 'shape': 'round-rectangle', 'font-size': 12, 'font-weight': 600 } },
-      { selector: 'node.namespace', style: { 'background-color': css('--node-namespace'), 'shape': 'round-rectangle' } },
-      { selector: 'node.interface', style: { 'background-color': css('--node-interface'), 'shape': 'diamond' } },
-      { selector: 'node.value', style: { 'background-color': css('--node-value'), 'shape': 'round-rectangle' } },
-      { selector: 'node.enum', style: { 'background-color': css('--node-enum'), 'shape': 'hexagon' } },
+      { selector: 'node.interface', style: { 'shape': 'diamond', 'width': 22, 'height': 22 } },
+      { selector: 'node.value', style: { 'shape': 'round-rectangle' } },
+      { selector: 'node.enum', style: { 'shape': 'hexagon' } },
+      // Projects and namespaces: tinted cards with the name inside.
+      {
+        selector: 'node.card',
+        style: {
+          'shape': 'round-rectangle',
+          'width': 'data(width)',
+          'height': 'data(height)',
+          'background-color': 'data(fill)', // opaque, so edges behind the card don't show through
+          'border-color': 'data(color)',
+          'border-width': 1.5,
+          'text-valign': 'center',
+          'text-margin-y': 0,
+          'text-max-width': 400,
+          'text-outline-width': 0,
+          'font-size': 12,
+          'line-height': 1.35,
+        },
+      },
+      { selector: 'node.project', style: { 'font-weight': 600, 'font-size': 13, 'border-width': 2 } },
       {
         selector: 'edge',
         style: {
-          'width': 'mapData(weight, 1, 25, 1.2, 6)',
+          'width': 'mapData(weight, 1, 25, 1, 5)',
           'line-color': css('--edge'),
           'target-arrow-color': css('--edge'),
           'target-arrow-shape': 'triangle',
-          'arrow-scale': 0.9,
+          'arrow-scale': 0.8,
           'curve-style': 'bezier',
-          'opacity': 0.85,
+          'opacity': 0.75,
+          'transition-property': 'opacity, line-color',
+          'transition-duration': 150,
+          'z-index-compare': 'manual',
+          'z-index': 1,
         },
       },
-      { selector: 'edge.structural', style: { 'line-style': 'dashed', 'line-color': css('--edge-structural'), 'target-arrow-color': css('--edge-structural') } },
-      { selector: 'edge.cycle', style: { 'line-color': css('--danger'), 'target-arrow-color': css('--danger'), 'opacity': 1 } },
-      { selector: 'node.cycle', style: { 'border-color': css('--danger'), 'border-width': 3 } },
-      { selector: '.context', style: { 'opacity': 0.45 } },
-      { selector: 'node.impact-target', style: { 'background-color': css('--accent'), 'width': 38, 'height': 38 } },
-      { selector: 'node.impact-1', style: { 'border-color': css('--danger'), 'border-width': 4 } },
-      { selector: 'node.impact-2', style: { 'border-color': css('--warn'), 'border-width': 4 } },
-      { selector: 'node.impact-3', style: { 'border-color': css('--edge'), 'border-width': 3 } },
+      { selector: 'edge.structural', style: { 'line-style': 'dashed', 'line-dash-pattern': [6, 4] } },
+      { selector: 'edge.cycle', style: { 'line-color': css('--danger'), 'target-arrow-color': css('--danger'), 'opacity': 1, 'width': 'mapData(weight, 1, 25, 1.5, 5)' } },
+      { selector: 'node.cycle', style: { 'border-color': css('--danger'), 'border-width': 2.5 } },
+      { selector: '.context', style: { 'opacity': 0.4 } },
+      { selector: 'node.impact-target', style: { 'width': 34, 'height': 34, 'underlay-color': css('--accent'), 'underlay-opacity': 0.3, 'underlay-padding': 8, 'underlay-shape': 'ellipse' } },
+      { selector: 'node.impact-1', style: { 'border-color': css('--danger'), 'border-width': 3 } },
+      { selector: 'node.impact-2', style: { 'border-color': css('--warn'), 'border-width': 3 } },
+      { selector: 'node.impact-3', style: { 'border-color': css('--muted'), 'border-width': 2 } },
       { selector: '.faded', style: { 'opacity': 0.12 } },
-      { selector: 'edge.highlighted', style: { 'label': 'data(label)', 'font-size': 10, 'color': css('--muted'), 'text-background-color': css('--label-bg'), 'text-background-opacity': 1, 'text-rotation': 'autorotate' } },
-      { selector: 'node:selected', style: { 'border-color': css('--accent'), 'border-width': 4 } },
+      { selector: 'edge.highlighted', style: {
+        'line-color': css('--accent'), 'target-arrow-color': css('--accent'), 'opacity': 1, 'z-index': 2,
+        'label': 'data(label)', 'font-family': font, 'font-size': 10, 'color': css('--muted'),
+        'text-background-color': css('--canvas'), 'text-background-opacity': 0.9, 'text-background-padding': 2, 'text-rotation': 'autorotate',
+      } },
+      { selector: 'edge.highlighted.cycle', style: { 'line-color': css('--danger'), 'target-arrow-color': css('--danger') } },
+      { selector: 'node.hovered', style: { 'underlay-color': css('--accent'), 'underlay-opacity': 0.12, 'underlay-padding': 6 } },
+      { selector: 'node:selected', style: { 'underlay-color': css('--accent'), 'underlay-opacity': 0.28, 'underlay-padding': 7, 'border-color': css('--accent'), 'border-width': 2 } },
     ];
+  }
+
+  // Cards are sized to fit their (two-line) label.
+  function cardSize(label) {
+    const lines = label.split('\n');
+    const longest = Math.max(...lines.map(line => line.length));
+    return { width: Math.max(90, longest * 7 + 32), height: lines.length * 17 + 18 };
   }
 
   const cy = cytoscape({
@@ -261,25 +397,106 @@
     maxZoom: 3,
   });
 
+  // A layered architecture diagram, used for projects and namespaces: each node's row is the length of its
+  // longest dependency chain (so the innermost layer sits at the bottom and composition roots at the top),
+  // and each row is ordered by the average position of its neighbors (the barycenter heuristic) to reduce
+  // crossing lines. Projects can't form cycles, so their graph is a DAG; for namespaces, an edge that closes
+  // a cycle is simply ignored when ranking. Rows longer than the graph is tall are wrapped.
+  function layeredPositions() {
+    const nodes = cy.nodes();
+    const dependencies = new Map(nodes.map(n => [n.id(), n.outgoers('node').map(m => m.id())]));
+    const rank = new Map();
+    const rankOf = (id, visiting = new Set()) => {
+      if (rank.has(id)) return rank.get(id);
+      if (visiting.has(id)) return 0; // never happens for projects; guards against a malformed graph
+      visiting.add(id);
+      const r = Math.max(-1, ...dependencies.get(id).map(dep => rankOf(dep, visiting))) + 1;
+      rank.set(id, r);
+      return r;
+    };
+    nodes.forEach(n => rankOf(n.id()));
+
+    const maxRank = Math.max(0, ...rank.values());
+    const rows = Array.from({ length: maxRank + 1 }, () => []);
+    nodes.forEach(n => rows[maxRank - rank.get(n.id())].push(n));
+    rows.forEach(row => row.sort((a, b) => b.data('width') - a.data('width') || a.id().localeCompare(b.id())));
+
+    const order = new Map();
+    const reindex = () => rows.forEach(row => row.forEach((n, i) => order.set(n.id(), i - (row.length - 1) / 2)));
+    reindex();
+    for (let sweep = 0; sweep < 4; sweep++) {
+      for (const row of rows) {
+        const center = n => {
+          const neighbors = n.neighborhood('node').map(m => order.get(m.id()));
+          return neighbors.length ? neighbors.reduce((s, x) => s + x, 0) / neighbors.length : order.get(n.id());
+        };
+        row.sort((a, b) => center(a) - center(b));
+      }
+      reindex();
+    }
+
+    // Wrap long rows so a wide, shallow graph keeps roughly the window's shape instead of becoming a thin
+    // strip. Cards sit side by side at their own widths, each sub-row centered.
+    const aspect = cy.width() / Math.max(cy.height(), 1);
+    const maxPerRow = Math.max(3, Math.round(Math.sqrt(nodes.length * aspect)));
+    const gap = 28;
+    const positions = {};
+    let y = 0;
+    for (const row of rows) {
+      for (let start = 0; start < row.length; start += maxPerRow) {
+        const chunk = row.slice(start, start + maxPerRow);
+        const total = chunk.reduce((sum, n) => sum + n.data('width'), 0) + gap * (chunk.length - 1);
+        let x = -total / 2;
+        for (const n of chunk) {
+          positions[n.id()] = { x: x + n.data('width') / 2, y };
+          x += n.data('width') + gap;
+        }
+        y += start + maxPerRow < row.length ? 72 : 120;
+      }
+    }
+    return positions;
+  }
+
+  let firstLayout = true;
+
   function runLayout() {
+    // Animate small graphs when the view changes (it shows how the layout settles). The first render, and
+    // big graphs, jump straight to the result so the opening view is always fitted.
+    const animate = !firstLayout && cy.nodes().length <= 150;
+    firstLayout = false;
     const layout = state.impactOf
-      ? { name: 'concentric', concentric: n => 10 - n.data('distance'), levelWidth: () => 1, minNodeSpacing: 40, animate: false }
-      : {
-        name: 'cose', animate: false, randomize: true, padding: 40,
-        // Count labels as part of each node, so long namespace names don't overlap.
-        nodeDimensionsIncludeLabels: true, nodeRepulsion: () => 60000, idealEdgeLength: () => 140, nodeOverlap: 40,
-      };
-    cy.layout(layout).run();
-    fitToView();
+      ? { name: 'concentric', concentric: n => 10 - n.data('distance'), levelWidth: () => 1, minNodeSpacing: 48 }
+      : state.level !== 'type'
+        ? { name: 'preset', positions: layeredPositions() }
+        : {
+          name: 'cose', randomize: true, padding: 48, numIter: 2500,
+          // Count labels as part of each node, so long names don't overlap.
+          nodeDimensionsIncludeLabels: true, nodeRepulsion: () => 90000, idealEdgeLength: () => 160, nodeOverlap: 80,
+        };
+    Object.assign(layout, { animate: animate ? 'end' : false, animationDuration: 450, animationEasing: 'ease-out-cubic', fit: false });
+    const running = cy.layout(layout);
+    running.one('layoutstop', () => fitToView(animate));
+    running.run();
   }
 
   // Fit everything in view, but don't blow a handful of nodes up to giant size.
-  function fitToView() {
-    cy.fit(undefined, 40);
-    if (cy.zoom() > 1.4) {
-      cy.zoom(1.4);
-      cy.center();
-    }
+  function fitToView(animate = true) {
+    const padding = 40;
+    const bounds = cy.elements().boundingBox();
+    const container = cy.container();
+    // Keep the graph clear of the legend overlay at the bottom.
+    const legend = document.getElementById('legend');
+    const bottom = padding + (legend.childElementCount ? legend.offsetHeight + 12 : 0);
+    const width = container.clientWidth - 2 * padding;
+    const height = container.clientHeight - padding - bottom;
+    const fitZoom = Math.min(width / Math.max(bounds.w, 1), height / Math.max(bounds.h, 1));
+    const zoom = Math.min(Math.max(fitZoom, cy.minZoom()), 1.4);
+    const pan = {
+      x: container.clientWidth / 2 - zoom * (bounds.x1 + bounds.w / 2),
+      y: padding + height / 2 - zoom * (bounds.y1 + bounds.h / 2),
+    };
+    if (animate) cy.animate({ zoom, pan }, { duration: 300, easing: 'ease-out-cubic' });
+    else cy.viewport({ zoom, pan });
   }
 
   function render() {
@@ -297,9 +514,10 @@
         : 'Nothing to show with the current filters.',
     }));
 
-    if (result.elements.length > 0) runLayout();
+    // The legend first: fitting the graph leaves room for it.
     renderScope();
     renderLegend();
+    if (result.elements.length > 0) runLayout();
     for (const level of LEVELS) {
       document.getElementById(`level-${level}`).setAttribute('aria-pressed', String(state.level === level));
     }
@@ -333,6 +551,19 @@
     }
   });
 
+  // Hovering previews a node's connections; it never overrides a click selection.
+  cy.on('mouseover', 'node', event => {
+    event.target.addClass('hovered');
+    if (cy.$(':selected').empty()) highlight(event.target);
+    cy.container().style.cursor = 'pointer';
+  });
+
+  cy.on('mouseout', 'node', event => {
+    event.target.removeClass('hovered');
+    if (cy.$(':selected').empty()) highlight(null);
+    cy.container().style.cursor = '';
+  });
+
   // ---------- navigation ----------
 
   function showLevel(level) {
@@ -364,7 +595,10 @@
   function selectType(id) {
     const node = nodesById.get(id);
     if (!node) return;
-    state.projects.add(node.project);
+    if (!state.projects.has(node.project)) {
+      state.projects.add(node.project);
+      filtersChanged();
+    }
     state.level = 'type';
     state.focusNamespace = node.namespace;
     state.impactOf = null;
@@ -417,20 +651,37 @@
   }
 
   function renderLegend() {
-    const swatch = (color, label, shape = '3px') =>
-      el('span', {}, el('i', { class: 'swatch', style: `background:${css(color)};border-radius:${shape}` }), label);
-    const line = (color, label, dashed) =>
-      el('span', {}, el('i', { class: 'swatch', style: `height:0;border-top:2px ${dashed ? 'dashed' : 'solid'} ${css(color)};width:16px;border-radius:0` }), label);
+    const item = (mark, label) => el('span', { class: 'legend-item' }, mark, label);
+    const swatch = (color, shape = 'square') => el('i', { class: `swatch ${shape}`, style: `--swatch:${color}` });
+    const line = (color, dashed) => el('i', { class: `line${dashed ? ' dashed' : ''}`, style: `--swatch:${color}` });
 
-    const items = state.level === 'project'
-      ? [swatch('--node-project', 'Project'), line('--edge', 'Depends on (count)')]
-      : state.level === 'namespace'
-      ? [swatch('--node-namespace', 'Namespace'), line('--edge', 'Depends on (count)'), line('--danger', 'Cycle')]
-      : state.impactOf
-        ? [swatch('--accent', 'Changed type', '50%'), swatch('--danger', 'Direct dependent', '50%'), swatch('--warn', '2 steps away', '50%'), swatch('--edge', '3+ steps', '50%')]
-        : [swatch('--node-class', 'Class', '50%'), swatch('--node-interface', 'Interface'), swatch('--node-value', 'Record / struct'),
-           swatch('--node-enum', 'Enum'), line('--edge-structural', 'Inherits / implements', true)];
-    document.getElementById('legend').replaceChildren(...items);
+    // Which projects are on screen right now, in palette order, with "Other" last.
+    const onScreen = new Set(cy.nodes().map(n => n.data('project')));
+    const colored = [...projectSlot].filter(([p, slot]) => slot > 0 && onScreen.has(p)).sort((a, b) => a[1] - b[1]);
+    const projects = colored.map(([p]) => item(swatch(projectColor(p)), p));
+    if ([...onScreen].some(p => p && !projectSlot.get(p))) projects.push(item(swatch(css('--series-other')), 'Other projects'));
+
+    const rows = [];
+    if (state.impactOf) {
+      rows.push([
+        item(swatch(css('--accent'), 'round'), 'Changed type'),
+        item(swatch(css('--danger'), 'ring'), 'Direct dependent'),
+        item(swatch(css('--warn'), 'ring'), '2 steps away'),
+        item(swatch(css('--muted'), 'ring'), '3+ steps'),
+      ]);
+    } else {
+      // At the project level every card is labeled with its project, so a color key would only repeat it.
+      if (state.level !== 'project') rows.push(projects);
+      const marks = state.level === 'type'
+        ? [item(swatch(css('--muted'), 'round'), 'Class'), item(swatch(css('--muted'), 'diamond'), 'Interface'),
+           item(swatch(css('--muted')), 'Record / struct'), item(line(css('--edge'), true), 'Inherits / implements')]
+        : [item(line(css('--edge')), 'Depends on (thicker = more)')];
+      if (state.level === 'namespace') marks.push(item(line(css('--danger')), 'Cycle'));
+      rows.push(marks);
+    }
+
+    document.getElementById('legend').replaceChildren(
+      ...rows.filter(r => r.length).map(r => el('div', { class: 'legend-row' }, r)));
   }
 
   // ---------- details panel ----------
@@ -484,7 +735,7 @@
       el('h2', { text: node.fullName }),
       el('div', { class: 'chips' },
         el('span', { class: 'chip', text: node.kind }),
-        el('span', { class: 'chip', text: node.project }),
+        el('span', { class: 'chip' }, el('i', { class: 'dot', style: `--swatch:${projectColor(node.project)}` }), node.project),
         namespaceCycle.has(node.namespace) ? el('span', { class: 'chip danger', text: 'Namespace in a cycle' }) : null),
       ...node.locations.map(loc => el('div', { class: 'location', text: formatLocation(loc) })),
       coupling ? el('div', { class: 'metrics' },
@@ -660,12 +911,11 @@
 
   function renderFilters() {
     const panel = document.getElementById('tab-filters');
-    const kindColor = kind => (STRUCTURAL_KINDS.has(kind) ? css('--edge-structural') : css('--edge'));
 
     const checkbox = (set, value, label, count, color) => el('label', { class: 'checkbox' },
       el('input', {
         type: 'checkbox', checked: set.has(value),
-        onchange: event => { event.target.checked ? set.add(value) : set.delete(value); render(); renderHealth(); },
+        onchange: event => { event.target.checked ? set.add(value) : set.delete(value); filtersChanged(); render(); renderHealth(); },
       }),
       color ? el('i', { class: 'swatch', style: `background:${color}` }) : null,
       el('span', { text: label }),
@@ -674,9 +924,9 @@
     setChildren(panel, 
       el('h3', { text: 'Dependency kinds' }),
       el('p', { class: 'subtle', text: 'Hide noisy kinds (like References) to see the structure.' }),
-      ...ALL_KINDS.filter(k => kindCounts.has(k)).map(k => checkbox(state.kinds, k, k, kindCounts.get(k), kindColor(k))),
+      ...ALL_KINDS.filter(k => kindCounts.has(k)).map(k => checkbox(state.kinds, k, k, kindCounts.get(k))),
       el('h3', { text: 'Projects' }),
-      ...[...projectCounts].sort((a, b) => a[0].localeCompare(b[0])).map(([p, count]) => checkbox(state.projects, p, p, count)),
+      ...[...projectCounts].sort((a, b) => a[0].localeCompare(b[0])).map(([p, count]) => checkbox(state.projects, p, p, count, projectColor(p))),
     );
   }
 
@@ -710,6 +960,14 @@
     if (event.key === 'Escape') { searchInput.value = ''; searchResults.hidden = true; }
   });
 
+  // "/" jumps to search, as on GitHub and most docs sites.
+  document.addEventListener('keydown', event => {
+    if (event.key === '/' && !event.target.closest('input, textarea')) {
+      event.preventDefault();
+      searchInput.focus();
+    }
+  });
+
   document.addEventListener('click', event => {
     if (!event.target.closest('.controls')) searchResults.hidden = true;
   });
@@ -728,12 +986,25 @@
   document.getElementById('level-project').addEventListener('click', () => showLevel('project'));
   document.getElementById('level-namespace').addEventListener('click', () => showLevel('namespace'));
   document.getElementById('level-type').addEventListener('click', () => showLevel('type'));
-  document.getElementById('fit').addEventListener('click', fitToView);
+  // Zoom toward a target that accumulates across clicks, so quick repeated clicks all count instead of each
+  // restarting the animation from wherever the previous one had reached.
+  let zoomTarget = null;
+  const zoomBy = factor => {
+    zoomTarget = Math.min(Math.max((zoomTarget ?? cy.zoom()) * factor, cy.minZoom()), cy.maxZoom());
+    cy.stop();
+    cy.animate(
+      { zoom: { level: zoomTarget, renderedPosition: { x: cy.width() / 2, y: cy.height() / 2 } } },
+      { duration: 150, complete: () => { zoomTarget = null; } });
+  };
+  document.getElementById('zoom-in').addEventListener('click', () => zoomBy(1.25));
+  document.getElementById('zoom-out').addEventListener('click', () => zoomBy(0.8));
+  document.getElementById('fit').addEventListener('click', () => fitToView());
   document.getElementById('relayout').addEventListener('click', runLayout);
 
+  // Node colors are resolved from CSS variables, so a theme change redraws the graph with the new palette.
   matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
     cy.style(graphStyle());
-    renderLegend();
+    render();
     renderFilters();
   });
 

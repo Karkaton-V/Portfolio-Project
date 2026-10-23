@@ -45,16 +45,36 @@ public static class CycleDetector
 
         var groups = groupOf.Values.Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal);
 
-        return StronglyConnectedComponents.FindCycles(groups, SuccessorsOf)
-            .Select(component =>
+        var components = StronglyConnectedComponents.FindCycles(groups, SuccessorsOf);
+
+        // Sort the evidence into cycles in one pass over the edges, rather than one pass per cycle:
+        // an edge belongs to a cycle when both of its ends are in the same component.
+        var componentOf = new Dictionary<string, int>(StringComparer.Ordinal);
+        for (var i = 0; i < components.Count; i++)
+        {
+            foreach (var group in components[i])
+            {
+                componentOf[group] = i;
+            }
+        }
+
+        var evidence = components.Select(_ => new List<CodeEdge>()).ToList();
+        foreach (var edge in crossingEdges)
+        {
+            if (componentOf.TryGetValue(groupOf[edge.SourceId], out var source)
+                && componentOf.TryGetValue(groupOf[edge.TargetId], out var target)
+                && source == target)
+            {
+                evidence[source].Add(edge);
+            }
+        }
+
+        return components
+            .Select((component, i) =>
             {
                 var members = component.Order(StringComparer.Ordinal).ToList();
                 var memberSet = members.ToHashSet(StringComparer.Ordinal);
-                var evidence = crossingEdges
-                    .Where(e => memberSet.Contains(groupOf[e.SourceId]) && memberSet.Contains(groupOf[e.TargetId]))
-                    .ToList();
-
-                return new DependencyCycle(members, ShortestLoop(members[0], memberSet, SuccessorsOf), evidence);
+                return new DependencyCycle(members, ShortestLoop(members[0], memberSet, SuccessorsOf), evidence[i]);
             })
             .OrderByDescending(c => c.Members.Count)
             .ThenBy(c => c.Members[0], StringComparer.Ordinal)

@@ -41,23 +41,27 @@ public static class ArchitectureChecker
         {
             rules.Add(new RuleInfo(rule.RuleId, rule.Name, Describe(rule), rule.Severity));
 
-            var from = Selector.Resolve(rule.From, config.Layers);
-            var targets = rule.Targets.Select(t => Selector.Resolve(t, config.Layers)).ToList();
+            // Resolve each selector to the set of type ids it matches, once. Checking an edge is then two
+            // hash lookups instead of running every pattern's regex against both ends of every edge.
+            var from = MatchingIds(graph, Selector.Resolve(rule.From, config.Layers));
+            var targets = rule.Targets.Select(t => MatchingIds(graph, Selector.Resolve(t, config.Layers))).ToList();
 
             // A typo in a pattern would make the rule silently pass forever, so call it out.
-            foreach (var selector in targets.Prepend(from).Where(s => !graph.Nodes.Any(s.Matches)))
+            foreach (var (text, ids) in targets.Prepend(from).Where(s => s.Ids.Count == 0))
             {
-                warnings.Add($"'{selector.Text}' in rule '{rule.Name}' matches no types. Check it for typos.");
+                warnings.Add($"'{text}' in rule '{rule.Name}' matches no types. Check it for typos.");
             }
 
-            bool Violates(CodeNode target) => rule.Forbid is not null
-                ? targets.Any(t => t.Matches(target))
-                : !from.Matches(target) && !targets.Any(t => t.Matches(target));
+            // The forbidden types for a `forbid` rule, or the allowed ones for a `mayOnlyDependOn` rule.
+            var listed = targets.SelectMany(t => t.Ids).ToHashSet(StringComparer.Ordinal);
+            bool Violates(string targetId) => rule.Forbid is not null
+                ? listed.Contains(targetId)
+                : !from.Ids.Contains(targetId) && !listed.Contains(targetId);
 
             // One violation per pair of types, however many ways the source uses the target.
             var offendingPairs = graph.Edges
                 .Where(e => rule.Kinds is null || rule.Kinds.Contains(e.Kind))
-                .Where(e => from.Matches(nodes[e.SourceId]) && Violates(nodes[e.TargetId]))
+                .Where(e => from.Ids.Contains(e.SourceId) && Violates(e.TargetId))
                 .GroupBy(e => (e.SourceId, e.TargetId));
 
             foreach (var pair in offendingPairs)
@@ -102,6 +106,9 @@ public static class ArchitectureChecker
 
         return new CheckResult(rules, violations, warnings.Distinct().ToList());
     }
+
+    private static (string Text, HashSet<string> Ids) MatchingIds(DependencyGraph graph, Selector selector) =>
+        (selector.Text, graph.Nodes.Where(selector.Matches).Select(n => n.Id).ToHashSet(StringComparer.Ordinal));
 
     private static string Describe(DependencyRule rule)
     {

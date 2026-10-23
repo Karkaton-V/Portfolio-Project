@@ -38,7 +38,7 @@ internal static class ImpactCommand
         foreach (var distance in impacted.GroupBy(i => i.Distance))
         {
             Console.WriteLine();
-            Console.WriteLine(distance.Key == 1 ? "Direct dependents" : $"{distance.Key} steps away");
+            Console.WriteLine(Ansi.Bold(distance.Key == 1 ? "Direct dependents" : $"{distance.Key} steps away"));
             foreach (var type in distance)
             {
                 var node = nodes[type.NodeId];

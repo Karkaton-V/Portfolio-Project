@@ -149,11 +149,18 @@ finds the sample's deliberate violations (exit code 3).
 all inlined, so it opens offline, with no server, and can be attached to a CI run or emailed.
 
 - **Projects → namespaces → types.** Drawing hundreds of types at once is unreadable, so the report starts at the
-  project level (in layered solutions, projects are the layers) and you double-click to drill in. Nodes are sized
-  by type count, and edges are weighted by how many dependencies they carry. Namespace cycles are drawn in red.
-  Add `#level=namespace` or `#level=type` to the report's URL to open it on another level.
+  project level (in layered solutions, projects are the layers) and you double-click to drill in. Edges are
+  weighted by how many dependencies they carry, and namespace cycles are drawn in red. Add `#level=namespace` or
+  `#level=type` to the report's URL to open it on another level.
+- **Layered layout**: projects and namespaces are drawn as an architecture diagram. Each one's row is its longest
+  dependency chain, so the innermost layer sits at the bottom, and rows are ordered to reduce crossing lines.
+  Projects can't form cycles, so their graph is always a DAG; for namespaces, an edge that closes a cycle is ignored
+  when ranking.
+- **Color means project** at every level, from a fixed, colorblind-checked palette, so a dependency that crosses
+  layers is visible as a line between colors. Red is kept out of the palette because it means "cycle".
 - **Type view**: double-click a namespace to see its types, plus faded neighbors from other namespaces for context.
-  Shapes and colors show the kind of type; dashed edges are inheritance or interface implementation.
+  Shape shows the kind of type; dashed edges are inheritance or interface implementation.
+- **Hover** a node to preview its connections; **click** to pin the selection. Press `/` to search.
 - **Details**: click any type for its source locations, coupling (used by, uses, instability), and what it depends
   on and what depends on it, with the kinds of each dependency.
 - **Impact**: "Show impact" redraws the graph as rings around the type: direct dependents, then 2 steps away, and so on.
@@ -163,6 +170,28 @@ all inlined, so it opens offline, with no server, and can be attached to a CI ru
 The analysis (cycles, coupling, rule results) runs in C#. The page's script only draws and filters. Every name is
 inserted as text rather than HTML, and the embedded JSON escapes `<`, so a type name can't inject markup into
 the page (there's a test with a hostile name). The page supports light and dark mode and works at phone width.
+
+To keep reports small on big solutions, edges are embedded as number rows that point into node, kind, and file
+tables (`[source, target, kind, file, line]`) rather than as objects that repeat full type IDs. On the case-study
+solution that cut the embedded data by 70%.
+
+## Performance
+
+`analyze` compiles and extracts every project in parallel, and within a project processes types in parallel.
+Roslyn's compilations and semantic models are safe to query from many threads. Results go into a fixed slot per
+project and are merged in a fixed order, so the graph is byte-for-byte identical from run to run. On the case-study
+solution (13 projects), compiling and extracting went from about 9–11 s to about 3.6 s. Most of the remaining time
+is MSBuild evaluating the project files, which CodeAtlas reports separately:
+
+```
+  Loaded 13 projects in 10.5 s
+  Compiled and extracted dependencies in 3.6 s (14.1 s total, using up to 12 threads)
+```
+
+Other choices that keep larger graphs fast:
+- **Rule checks:** each selector is resolved to a set of type IDs once, so checking an edge is two hash lookups.
+- **Cycle evidence:** gathered in a single pass over the edges.
+- **The viewer:** caches its filtered edge list and incoming-edge index between clicks.
 
 ## How it works
 
@@ -245,6 +274,7 @@ Requires the .NET 10 SDK (pinned in `global.json`). The target framework is set 
 - [x] **v0.3** `codeatlas check`: architecture rules from a config file, non-zero exit code, SARIF output, GitHub Actions CI
 - [x] **v0.4** Self-contained interactive HTML report (Cytoscape.js) with coupling metrics
 - [x] **v0.5** .NET 10 LTS and Roslyn 5; case study on a real-world solution
+- [x] **v0.6** Parallel analysis (~3× faster), compact report data (-70%), redesigned report with layered diagrams, colored CLI output
 - [ ] **Later** Pull-request impact (`--since main`), analysis history across commits
 
 ## Third-party code
