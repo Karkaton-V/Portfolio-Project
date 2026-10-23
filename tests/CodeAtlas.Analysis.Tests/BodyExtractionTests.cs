@@ -106,6 +106,24 @@ public class BodyExtractionTests
     }
 
     [Fact]
+    public void Treats_open_generic_typeof_as_a_reference_not_an_unresolved_type()
+    {
+        // The DI-registration pattern that produced a false warning on jasontaylordev/CleanArchitecture.
+        var graph = TestCompilation.Analyze("""
+            using System;
+            namespace Shop;
+            public class LoggingBehaviour<TRequest, TResponse> { }
+            public static class DependencyInjection
+            {
+                public static Type Behaviour() => typeof(LoggingBehaviour<,>);
+            }
+            """);
+
+        Assert.Equal(["References -> Shop.LoggingBehaviour<TRequest, TResponse>"], graph.EdgesFrom("Shop.DependencyInjection"));
+        Assert.Empty(graph.Warnings);
+    }
+
+    [Fact]
     public void Looks_inside_lambdas_initializers_and_accessors()
     {
         var graph = TestCompilation.Analyze("""

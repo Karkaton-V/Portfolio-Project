@@ -42,7 +42,8 @@ public class GraphJsonTests
         ];
 
         var forward = TestCompilation.Analyze(sources);
-        var reversed = TestCompilation.Analyze([.. sources.Reverse()]);
+        // Enumerable.Reverse explicitly: from C# 14, array.Reverse() binds to the in-place, void Span.Reverse().
+        var reversed = TestCompilation.Analyze([.. Enumerable.Reverse(sources)]);
 
         // File paths differ between the runs (File0 vs File1), so compare identities only.
         Assert.Equal(forward.Nodes.Select(n => n.Id), reversed.Nodes.Select(n => n.Id));

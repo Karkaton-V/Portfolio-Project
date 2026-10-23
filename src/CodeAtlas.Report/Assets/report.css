@@ -18,6 +18,7 @@
   --node-interface: #8558c4;
   --node-value: #2a8a7e;
   --node-enum: #b06d12;
+  --node-project: #2f6e8f;
   --node-namespace: #4b6fae;
   --edge: #a9b2c0;
   --edge-structural: #8558c4;
@@ -48,6 +49,7 @@
     --node-interface: #ad86e8;
     --node-value: #4fbfae;
     --node-enum: #e0a24a;
+    --node-project: #5fb3d9;
     --node-namespace: #7c9bd6;
     --edge: #4f5a6b;
     --edge-structural: #ad86e8;
@@ -176,7 +178,7 @@ code, .mono { font-family: var(--mono); font-size: 12.5px; }
 
 .segmented {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(3, 1fr);
   background: var(--surface-2);
   border-radius: var(--radius);
   padding: 3px;

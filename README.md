@@ -1,11 +1,18 @@
 # CodeAtlas
 
+[![CI](https://github.com/Karkaton-V/Portfolio-Project/actions/workflows/ci.yml/badge.svg)](https://github.com/Karkaton-V/Portfolio-Project/actions/workflows/ci.yml)
+
 A command-line tool that maps the dependencies inside a C# solution using the Roslyn compiler APIs, then
 finds dependency cycles, answers "what could this change affect?", enforces architecture rules in CI, and
 writes an interactive HTML report you can explore in any browser.
 
 CodeAtlas loads a `.sln`, `.slnx`, or `.csproj`, finds every type the solution declares, and records how those
 types depend on each other, from inheritance and constructor injection down to individual method calls.
+
+![CodeAtlas report showing a namespace cycle in the sample solution](docs/images/report-namespaces.png)
+
+**Real-world test:** [case study on jasontaylordev/CleanArchitecture](docs/case-studies/clean-architecture/README.md)
+(13 projects, 144 types): its layering rules pass, it has two deliberate cycles, and the run found three bugs in CodeAtlas that are now fixed.
 
 ## Usage
 
@@ -141,9 +148,10 @@ finds the sample's deliberate violations (exit code 3).
 `codeatlas report` writes one self-contained HTML file. The page, its script, Cytoscape.js, and the graph data are
 all inlined, so it opens offline, with no server, and can be attached to a CI run or emailed.
 
-- **Namespace map** (the default): namespaces sized by type count, with edges weighted by how many
-  dependencies they carry. Namespace cycles are drawn in red. Drawing hundreds of types at once is unreadable,
-  so the report starts here and lets you drill in.
+- **Projects → namespaces → types.** Drawing hundreds of types at once is unreadable, so the report starts at the
+  project level (in layered solutions, projects are the layers) and you double-click to drill in. Nodes are sized
+  by type count, and edges are weighted by how many dependencies they carry. Namespace cycles are drawn in red.
+  Add `#level=namespace` or `#level=type` to the report's URL to open it on another level.
 - **Type view**: double-click a namespace to see its types, plus faded neighbors from other namespaces for context.
   Shapes and colors show the kind of type; dashed edges are inheritance or interface implementation.
 - **Details**: click any type for its source locations, coupling (used by, uses, instability), and what it depends
@@ -228,7 +236,7 @@ dotnet build
 dotnet test
 ```
 
-The target framework is set once in `Directory.Build.props`.
+Requires the .NET 10 SDK (pinned in `global.json`). The target framework is set once in `Directory.Build.props`.
 
 ## Roadmap
 
@@ -236,7 +244,8 @@ The target framework is set once in `Directory.Build.props`.
 - [x] **v0.2** Method-body dependencies, namespace and type cycle detection (iterative Tarjan), change-impact analysis
 - [x] **v0.3** `codeatlas check`: architecture rules from a config file, non-zero exit code, SARIF output, GitHub Actions CI
 - [x] **v0.4** Self-contained interactive HTML report (Cytoscape.js) with coupling metrics
-- [ ] **Later** Pull-request impact (`--since main`), analysis history across commits, retarget to .NET 10 LTS
+- [x] **v0.5** .NET 10 LTS and Roslyn 5; case study on a real-world solution
+- [ ] **Later** Pull-request impact (`--since main`), analysis history across commits
 
 ## Third-party code
 

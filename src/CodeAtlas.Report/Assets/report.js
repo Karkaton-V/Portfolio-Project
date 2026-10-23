@@ -8,6 +8,7 @@
   const ALL_KINDS = ['Inherits', 'Implements', 'ConstructorParameter', 'Field', 'Property',
     'MethodSignature', 'Instantiates', 'Calls', 'References'];
   const STRUCTURAL_KINDS = new Set(['Inherits', 'Implements']);
+  const LEVELS = ['project', 'namespace', 'type'];
   const MAX_DRAWN_TYPES = 600;
 
   const nodesById = new Map(data.nodes.map(n => [n.id, n]));
@@ -18,7 +19,9 @@
   data.namespaceCycles.forEach((cycle, i) => cycle.members.forEach(ns => namespaceCycle.set(ns, i)));
 
   const state = {
-    level: 'namespace',     // 'namespace' | 'type'
+    // Projects are the natural top level of a multi-project solution (in layered designs they *are* the layers).
+    level: projectCounts.size > 1 ? 'project' : 'namespace', // 'project' | 'namespace' | 'type'
+    focusProject: null,     // in namespace view, only this project's namespaces (null = all)
     focusNamespace: null,   // in type view, the namespace being explored (null = all types)
     impactOf: null,         // in type view, show only this type and what depends on it
     kinds: new Set(ALL_KINDS.filter(k => kindCounts.has(k))),
@@ -101,12 +104,16 @@
 
   // ---------- graph elements ----------
 
-  function namespaceElements() {
-    const typeCounts = countBy(data.nodes.filter(isVisible), n => n.namespace);
+  // Collapses types into groups (projects or namespaces): one node per group, one edge per pair of
+  // groups weighted by how many type-level dependencies it stands for.
+  function groupElements(keyOf, kind, isInCycle, types) {
+    const included = new Set(types.map(n => n.id));
+    const typeCounts = countBy(types, keyOf);
     const links = new Map();
     for (const e of visibleEdges()) {
-      const from = nodesById.get(e.sourceId).namespace;
-      const to = nodesById.get(e.targetId).namespace;
+      if (!included.has(e.sourceId) || !included.has(e.targetId)) continue;
+      const from = keyOf(nodesById.get(e.sourceId));
+      const to = keyOf(nodesById.get(e.targetId));
       if (from === to) continue;
       const key = `${from}\u0000${to}`;
       const link = links.get(key) || { from, to, count: 0 };
@@ -114,23 +121,28 @@
       links.set(key, link);
     }
 
-    const nodes = [...typeCounts].map(([ns, count]) => ({
+    const label = kind === 'namespace' ? nsLabel : name => name;
+    const nodes = [...typeCounts].map(([group, count]) => ({
       group: 'nodes',
-      data: { id: `ns:${ns}`, ns, label: `${nsLabel(ns)}\n${plural(count, 'type')}`, size: 28 + Math.sqrt(count) * 9 },
-      classes: namespaceCycle.has(ns) ? 'namespace cycle' : 'namespace',
+      data: { id: `${kind}:${group}`, group, label: `${label(group)}\n${plural(count, 'type')}`, size: 28 + Math.sqrt(count) * 9 },
+      classes: isInCycle(group) ? `${kind} cycle` : kind,
     }));
 
-    const edges = [...links.values()].map(link => {
-      const inCycle = namespaceCycle.has(link.from) && namespaceCycle.get(link.from) === namespaceCycle.get(link.to);
-      return {
-        group: 'edges',
-        data: { id: `nsl:${link.from}\u0000${link.to}`, source: `ns:${link.from}`, target: `ns:${link.to}`, weight: link.count, label: String(link.count) },
-        classes: inCycle ? 'cycle' : '',
-      };
-    });
+    const edges = [...links.values()].map(link => ({
+      group: 'edges',
+      data: { id: `${kind}-link:${link.from}\u0000${link.to}`, source: `${kind}:${link.from}`, target: `${kind}:${link.to}`, weight: link.count, label: String(link.count) },
+      classes: isInCycle(link.from) && namespaceCycle.get(link.from) === namespaceCycle.get(link.to) ? 'cycle' : '',
+    }));
 
     return { elements: [...nodes, ...edges], count: nodes.length };
   }
+
+  // Projects can't reference each other in a loop (MSBuild forbids it), so only namespaces show cycles.
+  const projectElements = () => groupElements(n => n.project, 'project', () => false, data.nodes.filter(isVisible));
+
+  const namespaceElements = () => groupElements(
+    n => n.namespace, 'namespace', ns => namespaceCycle.has(ns),
+    data.nodes.filter(n => isVisible(n) && (state.focusProject === null || n.project === state.focusProject)));
 
   function typeElements() {
     const visible = data.nodes.filter(isVisible);
@@ -210,6 +222,7 @@
           'border-color': css('--surface'),
         },
       },
+      { selector: 'node.project', style: { 'background-color': css('--node-project'), 'shape': 'round-rectangle', 'font-size': 12, 'font-weight': 600 } },
       { selector: 'node.namespace', style: { 'background-color': css('--node-namespace'), 'shape': 'round-rectangle' } },
       { selector: 'node.interface', style: { 'background-color': css('--node-interface'), 'shape': 'diamond' } },
       { selector: 'node.value', style: { 'background-color': css('--node-value'), 'shape': 'round-rectangle' } },
@@ -270,7 +283,9 @@
   }
 
   function render() {
-    const result = state.level === 'namespace' ? namespaceElements() : typeElements();
+    const result = state.level === 'project' ? projectElements()
+      : state.level === 'namespace' ? namespaceElements()
+        : typeElements();
     cy.elements().remove();
     cy.add(result.elements);
 
@@ -285,8 +300,9 @@
     if (result.elements.length > 0) runLayout();
     renderScope();
     renderLegend();
-    document.getElementById('level-namespace').setAttribute('aria-pressed', String(state.level === 'namespace'));
-    document.getElementById('level-type').setAttribute('aria-pressed', String(state.level === 'type'));
+    for (const level of LEVELS) {
+      document.getElementById(`level-${level}`).setAttribute('aria-pressed', String(state.level === level));
+    }
   }
 
   function highlight(element) {
@@ -300,12 +316,14 @@
   cy.on('tap', 'node', event => {
     const target = event.target;
     highlight(target);
-    if (state.level === 'namespace') showNamespaceDetails(target.data('ns'));
+    if (state.level === 'project') showProjectDetails(target.data('group'));
+    else if (state.level === 'namespace') showNamespaceDetails(target.data('group'));
     else showTypeDetails(target.id());
   });
 
   cy.on('dbltap', 'node', event => {
-    if (state.level === 'namespace') openNamespace(event.target.data('ns'));
+    if (state.level === 'project') openProject(event.target.data('group'));
+    else if (state.level === 'namespace') openNamespace(event.target.data('group'));
   });
 
   cy.on('tap', event => {
@@ -319,10 +337,20 @@
 
   function showLevel(level) {
     state.level = level;
+    state.focusProject = null;
     state.focusNamespace = null;
     state.impactOf = null;
     render();
     showOverview();
+  }
+
+  function openProject(project) {
+    state.level = 'namespace';
+    state.focusProject = project;
+    state.focusNamespace = null;
+    state.impactOf = null;
+    render();
+    showProjectDetails(project);
   }
 
   function openNamespace(ns) {
@@ -366,7 +394,11 @@
 
   function renderScope() {
     const scope = document.getElementById('scope');
-    const back = el('button', { type: 'button', class: 'link', text: '← All namespaces', onclick: () => showLevel('namespace') });
+    const topLevel = projectCounts.size > 1 ? 'project' : 'namespace';
+    const back = el('button', {
+      type: 'button', class: 'link', text: topLevel === 'project' ? '← All projects' : '← All namespaces',
+      onclick: () => showLevel(topLevel),
+    });
 
     if (state.impactOf) {
       const node = nodesById.get(state.impactOf);
@@ -375,6 +407,10 @@
       scope.replaceChildren(el('span', {}, 'Types in ', el('strong', { text: nsLabel(state.focusNamespace) })), back);
     } else if (state.level === 'type') {
       scope.replaceChildren(el('span', { text: 'All types' }));
+    } else if (state.level === 'namespace' && state.focusProject !== null) {
+      scope.replaceChildren(el('span', {}, 'Namespaces in ', el('strong', { text: state.focusProject })), back);
+    } else if (state.level === 'project') {
+      scope.replaceChildren(el('span', { text: 'Double-click a project to see its namespaces.' }));
     } else {
       scope.replaceChildren(el('span', { text: 'Double-click a namespace to see its types.' }));
     }
@@ -386,7 +422,9 @@
     const line = (color, label, dashed) =>
       el('span', {}, el('i', { class: 'swatch', style: `height:0;border-top:2px ${dashed ? 'dashed' : 'solid'} ${css(color)};width:16px;border-radius:0` }), label);
 
-    const items = state.level === 'namespace'
+    const items = state.level === 'project'
+      ? [swatch('--node-project', 'Project'), line('--edge', 'Depends on (count)')]
+      : state.level === 'namespace'
       ? [swatch('--node-namespace', 'Namespace'), line('--edge', 'Depends on (count)'), line('--danger', 'Cycle')]
       : state.impactOf
         ? [swatch('--accent', 'Changed type', '50%'), swatch('--danger', 'Direct dependent', '50%'), swatch('--warn', '2 steps away', '50%'), swatch('--edge', '3+ steps', '50%')]
@@ -408,7 +446,7 @@
         metric(data.nodes.length, 'types'), metric(namespaces, 'namespaces'), metric(data.edges.length, 'dependencies')),
       el('h3', { text: 'How to use' }),
       el('ul', { class: 'subtle' },
-        el('li', { text: 'Click a node to see its dependencies; double-click a namespace to open it.' }),
+        el('li', { text: 'Click a node to see its dependencies; double-click a project or namespace to drill in.' }),
         el('li', { text: 'Search for a type, then use "Show impact" to see everything that depends on it.' }),
         el('li', { text: 'The Health tab lists cycles, rule violations, and the most connected types.' })),
     );
@@ -516,6 +554,42 @@
     selectTab('details');
   }
 
+  function showProjectDetails(project) {
+    const types = data.nodes.filter(n => n.project === project);
+    const namespaces = countBy(types, n => n.namespace);
+    const outgoing = new Map();
+    const incoming = new Map();
+    for (const e of visibleEdges()) {
+      const from = nodesById.get(e.sourceId).project;
+      const to = nodesById.get(e.targetId).project;
+      if (from === to) continue;
+      if (from === project) outgoing.set(to, (outgoing.get(to) || 0) + 1);
+      if (to === project) incoming.set(from, (incoming.get(from) || 0) + 1);
+    }
+    const projectRows = map => el('ul', { class: 'list' }, [...map].sort((a, b) => b[1] - a[1]).map(([other, count]) =>
+      el('li', {}, el('button', { type: 'button', class: 'row', onclick: () => openProject(other) },
+        el('span', { class: 'name', text: other }), el('span', { class: 'meta', text: dependencies(count) })))));
+
+    setChildren(detailsPanel,
+      el('h2', { text: project }),
+      el('div', { class: 'chips' },
+        el('span', { class: 'chip', text: 'Project' }),
+        el('span', { class: 'chip', text: plural(types.length, 'type') }),
+        el('span', { class: 'chip', text: plural(namespaces.size, 'namespace') })),
+      state.level === 'namespace' && state.focusProject === project ? null : el('div', { class: 'actions' },
+        el('button', { type: 'button', class: 'button primary', text: 'Show namespaces', onclick: () => openProject(project) })),
+      el('h3', { text: `Depends on (${outgoing.size})` }),
+      outgoing.size ? projectRows(outgoing) : el('p', { class: 'subtle', text: 'No other projects.' }),
+      el('h3', { text: `Used by (${incoming.size})` }),
+      incoming.size ? projectRows(incoming) : el('p', { class: 'subtle', text: 'No other projects.' }),
+      el('h3', { text: 'Namespaces' }),
+      el('ul', { class: 'list' }, [...namespaces].sort((a, b) => a[0].localeCompare(b[0])).map(([ns, count]) =>
+        el('li', {}, el('button', { type: 'button', class: 'row', onclick: () => openNamespace(ns) },
+          el('span', { class: 'name', text: nsLabel(ns) }), el('span', { class: 'meta', text: plural(count, 'type') }))))),
+    );
+    selectTab('details');
+  }
+
   // ---------- health panel ----------
 
   function renderHealth() {
@@ -558,7 +632,7 @@
         el('p', { class: 'subtle', text: `${dependencies(cycle.evidenceCount)} involved.` }),
         el('div', { class: 'actions' }, el('button', {
           type: 'button', class: 'button', text: 'Show in graph',
-          onclick: () => { showLevel('namespace'); highlight(cy.nodes().filter(n => cycle.members.includes(n.data('ns')))); },
+          onclick: () => { showLevel('namespace'); highlight(cy.nodes().filter(n => cycle.members.includes(n.data('group')))); },
         }))),
     ));
 
@@ -651,6 +725,7 @@
   }
 
   document.querySelectorAll('.tabs [role="tab"]').forEach(tab => tab.addEventListener('click', () => selectTab(tab.dataset.tab)));
+  document.getElementById('level-project').addEventListener('click', () => showLevel('project'));
   document.getElementById('level-namespace').addEventListener('click', () => showLevel('namespace'));
   document.getElementById('level-type').addEventListener('click', () => showLevel('type'));
   document.getElementById('fit').addEventListener('click', fitToView);
@@ -668,6 +743,10 @@
   const stats = [[data.nodes.length, 'types'], [data.edges.length, 'dependencies'], [projectCounts.size, 'projects']];
   document.getElementById('stats').replaceChildren(...stats.map(([value, label]) =>
     el('div', {}, el('dt', { text: label }), el('dd', { text: String(value) }))));
+
+  // A link like report.html#level=namespace opens on that level.
+  const requestedLevel = new URLSearchParams(location.hash.slice(1)).get('level');
+  if (LEVELS.includes(requestedLevel)) state.level = requestedLevel;
 
   render();
   showOverview();

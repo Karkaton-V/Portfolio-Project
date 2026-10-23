@@ -57,9 +57,11 @@ internal static class ImpactCommand
         {
             1 => matches[0],
             0 => throw new UsageException($"No type matches '{query}'.", showUsage: false),
+            // Full names can repeat across projects (e.g. every project's DependencyInjection class in
+            // Microsoft.Extensions.DependencyInjection), so offer the id, which is always unique.
             _ => throw new UsageException(
-                $"'{query}' matches {matches.Count} types; use a full name:{Environment.NewLine}" +
-                string.Join(Environment.NewLine, matches.Select(m => $"  {m.FullName}")),
+                $"'{query}' matches {matches.Count} types. Use a full name, or the id if full names repeat:{Environment.NewLine}" +
+                string.Join(Environment.NewLine, matches.Select(m => $"  {m.FullName}  [{m.Project}]  id: {m.Id}")),
                 showUsage: false),
         };
     }

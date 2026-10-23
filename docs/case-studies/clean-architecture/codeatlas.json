@@ -1,0 +1,38 @@
+{
+  // Rules for jasontaylordev/CleanArchitecture. Layers are selected by project, not namespace:
+  // the DI setup classes in Application, Infrastructure, and Web all share the
+  // Microsoft.Extensions.DependencyInjection namespace, so namespaces don't separate the layers.
+  "layers": {
+    "Domain": ["project:Domain"],
+    "Application": ["project:Application"],
+    "Infrastructure": ["project:Infrastructure"],
+    "Web": ["project:Web"]
+  },
+
+  "rules": [
+    {
+      "name": "Domain depends on nothing else",
+      "from": "Domain",
+      "mayOnlyDependOn": []
+    },
+    {
+      "name": "Application depends only on Domain",
+      "from": "Application",
+      "mayOnlyDependOn": ["Domain"]
+    },
+    {
+      "name": "Infrastructure does not depend on Web",
+      "from": "Infrastructure",
+      "forbid": ["Web"]
+    },
+    {
+      // Stricter than the template promises: vertical slices staying independent of each other.
+      "name": "TodoItems features do not depend on TodoLists features",
+      "from": "CleanArchitecture.Application.TodoItems.**",
+      "forbid": ["CleanArchitecture.Application.TodoLists.**"],
+      "severity": "warning"
+    }
+  ],
+
+  "namespaceCycles": "warning"
+}

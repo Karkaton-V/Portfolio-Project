@@ -96,6 +96,14 @@ internal static class DependencyExtractor
 
             case INamedTypeSymbol named:
                 yield return named.OriginalDefinition;
+
+                // typeof(Handler<,>) has no real type arguments; Roslyn fills the slots with placeholder error
+                // types, which would otherwise be reported as unresolved.
+                if (named.IsUnboundGenericType)
+                {
+                    break;
+                }
+
                 foreach (var argument in named.TypeArguments)
                 {
                     foreach (var inner in Flatten(argument))
