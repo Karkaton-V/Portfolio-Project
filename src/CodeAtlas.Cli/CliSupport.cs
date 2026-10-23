@@ -8,6 +8,7 @@ internal static class ExitCodes
     public const int Success = 0;
     public const int UsageError = 1;
     public const int Failure = 2;
+    public const int RuleViolations = 3;
     public const int Cancelled = 130;
 }
 

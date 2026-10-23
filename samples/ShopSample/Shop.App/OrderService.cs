@@ -1,3 +1,4 @@
+using Shop.App.Infrastructure;
 using Shop.Domain.Billing;
 using Shop.Domain.Orders;
 
@@ -10,19 +11,13 @@ public interface IOrderService
 
 public class OrderService(IOrderRepository repository) : IOrderService
 {
+    // Deliberate rule violation: a convenient shortcut that ties the service to one storage implementation.
+    public static OrderService CreateDefault() => new(new InMemoryOrderRepository());
+
     public Invoice Checkout(int orderId)
     {
         var order = repository.Find(orderId) ?? throw new InvalidOperationException($"Order {orderId} not found.");
         repository.Save(order);
         return new Invoice(order);
     }
-}
-
-public class InMemoryOrderRepository : IOrderRepository
-{
-    private readonly Dictionary<int, Order> _orders = [];
-
-    public Order? Find(int id) => _orders.GetValueOrDefault(id);
-
-    public void Save(Order order) => _orders[order.Id] = order;
 }

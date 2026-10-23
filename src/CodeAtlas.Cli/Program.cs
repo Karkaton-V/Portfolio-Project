@@ -15,6 +15,7 @@ try
         ["analyze", .. var rest] => await AnalyzeCommand.RunAsync(rest, cancellation.Token),
         ["cycles", .. var rest] => await CyclesCommand.RunAsync(rest, cancellation.Token),
         ["impact", .. var rest] => await ImpactCommand.RunAsync(rest, cancellation.Token),
+        ["check", .. var rest] => await CheckCommand.RunAsync(rest, cancellation.Token),
         ["-h" or "--help" or "help", ..] => PrintUsage(Console.Out, ExitCodes.Success),
         _ => PrintUsage(Console.Error, ExitCodes.UsageError),
     };
@@ -44,6 +45,7 @@ static int PrintUsage(TextWriter writer, int exitCode)
           codeatlas analyze <solution> [-o <graph.json>]
           codeatlas cycles  <input> [--level namespace|type]
           codeatlas impact  <input> <type> [--depth <n>] [--kinds <kind,...>]
+          codeatlas check   <input> [--config <codeatlas.json>] [--sarif <file>] [--path-prefix <dir>]
 
         <solution> is a .sln, .slnx, or .csproj file. <input> is a solution or a graph.json written by
         `analyze -o`; reusing a saved graph skips the slow solution load.
@@ -52,6 +54,10 @@ static int PrintUsage(TextWriter writer, int exitCode)
           analyze    Extract types and dependencies; optionally save them as JSON
           cycles     Find groups of namespaces (or types) that depend on each other in a loop
           impact     List the types that depend on <type>, directly or indirectly
+          check      Enforce the architecture rules in codeatlas.json (default: next to <input>)
+
+        Exit codes:
+          0 success   1 bad arguments or config   2 analysis failed   3 rule violations (errors)
 
         Dependency kinds:
           Inherits, Implements, ConstructorParameter, Field, Property, MethodSignature,
