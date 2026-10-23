@@ -27,6 +27,19 @@ public sealed class GraphBuilder(string? rootDirectory = null)
     {
         var project = projectName ?? compilation.AssemblyName ?? "(unnamed)";
 
+        // Creating a semantic model is expensive and a file can declare many types, so share one per file.
+        var semanticModels = new Dictionary<SyntaxTree, SemanticModel>();
+        SemanticModel SemanticModelFor(SyntaxTree tree)
+        {
+            if (!semanticModels.TryGetValue(tree, out var model))
+            {
+                model = compilation.GetSemanticModel(tree);
+                semanticModels[tree] = model;
+            }
+
+            return model;
+        }
+
         foreach (var type in SourceTypes(compilation.Assembly.GlobalNamespace))
         {
             // Build tooling can inject source from outside the solution (e.g. the test SDK's
@@ -44,7 +57,10 @@ public sealed class GraphBuilder(string? rootDirectory = null)
                 continue;
             }
 
-            foreach (var reference in DependencyExtractor.Extract(type))
+            var references = DependencyExtractor.Extract(type)
+                .Concat(BodyDependencyExtractor.Extract(type, SemanticModelFor));
+
+            foreach (var reference in references)
             {
                 foreach (var target in DependencyExtractor.Flatten(reference.Type))
                 {

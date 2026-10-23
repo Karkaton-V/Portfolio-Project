@@ -32,6 +32,21 @@ public enum DependencyKind
 
     /// <summary>Type appears in a property declaration.</summary>
     Property,
+
+    /// <summary>Type appears in a method's parameters or return type.</summary>
+    MethodSignature,
+
+    /// <summary>A method body creates an instance of the type (<c>new Order()</c>).</summary>
+    Instantiates,
+
+    /// <summary>A method body calls a method declared on the type, including static and extension methods.</summary>
+    Calls,
+
+    /// <summary>
+    /// The type is named or inferred anywhere else in a method body: local variables (including <c>var</c>),
+    /// casts, <c>typeof</c>, static member access, generic arguments.
+    /// </summary>
+    References,
 }
 
 /// <summary>A 1-based line in a source file. Paths are relative to the analyzed solution when possible.</summary>

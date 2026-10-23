@@ -10,7 +10,8 @@ internal static class DependencyExtractor
 {
     /// <summary>
     /// Lists the types a type's declaration refers to: its base type, interfaces, and the types of its
-    /// constructor parameters, fields, and properties. Method bodies are not inspected yet.
+    /// constructor parameters, fields, properties, and method signatures. Bodies are handled by
+    /// <see cref="BodyDependencyExtractor"/>.
     /// </summary>
     public static IEnumerable<TypeReference> Extract(INamedTypeSymbol type)
     {
@@ -50,6 +51,19 @@ internal static class DependencyExtractor
                     {
                         yield return new TypeReference(
                             parameter.Type, DependencyKind.ConstructorParameter, FirstSourceLocation(parameter));
+                    }
+                    break;
+
+                case IMethodSymbol
+                {
+                    MethodKind: MethodKind.Ordinary or MethodKind.DelegateInvoke or MethodKind.ExplicitInterfaceImplementation
+                        or MethodKind.UserDefinedOperator or MethodKind.Conversion,
+                } method:
+                    var location = FirstSourceLocation(method);
+                    yield return new TypeReference(method.ReturnType, DependencyKind.MethodSignature, location);
+                    foreach (var parameter in method.Parameters)
+                    {
+                        yield return new TypeReference(parameter.Type, DependencyKind.MethodSignature, location);
                     }
                     break;
             }

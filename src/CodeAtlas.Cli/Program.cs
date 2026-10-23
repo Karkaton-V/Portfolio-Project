@@ -1,43 +1,5 @@
-using CodeAtlas.Analysis;
-using CodeAtlas.Core;
-
-const int Success = 0;
-const int UsageError = 1;
-const int AnalysisError = 2;
-const int Cancelled = 130;
-
-if (args is ["-h" or "--help" or "help", ..])
-{
-    PrintUsage(Console.Out);
-    return Success;
-}
-
-if (args is not ["analyze", var inputPath, .. var options])
-{
-    PrintUsage(Console.Error);
-    return UsageError;
-}
-
-string? outputPath = null;
-for (var i = 0; i < options.Length; i++)
-{
-    switch (options[i])
-    {
-        case "-o" or "--output" when i + 1 < options.Length:
-            outputPath = options[++i];
-            break;
-        default:
-            Console.Error.WriteLine($"Unknown or incomplete option '{options[i]}'.");
-            PrintUsage(Console.Error);
-            return UsageError;
-    }
-}
-
-if (!File.Exists(inputPath))
-{
-    Console.Error.WriteLine($"File not found: {inputPath}");
-    return UsageError;
-}
+using CodeAtlas.Cli;
+using CodeAtlas.Cli.Commands;
 
 using var cancellation = new CancellationTokenSource();
 Console.CancelKeyPress += (_, e) =>
@@ -46,69 +8,54 @@ Console.CancelKeyPress += (_, e) =>
     cancellation.Cancel();
 };
 
-DependencyGraph graph;
 try
 {
-    Console.Error.WriteLine($"Loading {inputPath}...");
-    graph = await SolutionAnalyzer.AnalyzeAsync(inputPath, new ConsoleProgress(), cancellation.Token);
+    return args switch
+    {
+        ["analyze", .. var rest] => await AnalyzeCommand.RunAsync(rest, cancellation.Token),
+        ["cycles", .. var rest] => await CyclesCommand.RunAsync(rest, cancellation.Token),
+        ["impact", .. var rest] => await ImpactCommand.RunAsync(rest, cancellation.Token),
+        ["-h" or "--help" or "help", ..] => PrintUsage(Console.Out, ExitCodes.Success),
+        _ => PrintUsage(Console.Error, ExitCodes.UsageError),
+    };
+}
+catch (UsageException ex)
+{
+    Console.Error.WriteLine(ex.Message);
+    return ex.ShowUsage ? PrintUsage(Console.Error, ExitCodes.UsageError) : ExitCodes.UsageError;
 }
 catch (OperationCanceledException)
 {
     Console.Error.WriteLine("Cancelled.");
-    return Cancelled;
+    return ExitCodes.Cancelled;
 }
 catch (Exception ex)
 {
-    Console.Error.WriteLine($"Analysis failed: {ex.Message}");
-    return AnalysisError;
+    Console.Error.WriteLine($"Error: {ex.Message}");
+    return ExitCodes.Failure;
 }
 
-PrintSummary(graph);
-
-if (outputPath is not null)
+static int PrintUsage(TextWriter writer, int exitCode)
 {
-    await File.WriteAllTextAsync(outputPath, GraphJson.Serialize(graph));
-    Console.WriteLine($"Wrote graph to {Path.GetFullPath(outputPath)}");
-}
+    writer.WriteLine(
+        """
 
-return Success;
+        Usage:
+          codeatlas analyze <solution> [-o <graph.json>]
+          codeatlas cycles  <input> [--level namespace|type]
+          codeatlas impact  <input> <type> [--depth <n>] [--kinds <kind,...>]
 
-static void PrintSummary(DependencyGraph graph)
-{
-    var projectCount = graph.Nodes.Select(n => n.Project).Distinct().Count();
-    Console.WriteLine();
-    Console.WriteLine($"{graph.Nodes.Count} types and {graph.Edges.Count} dependencies across {projectCount} project(s)");
+        <solution> is a .sln, .slnx, or .csproj file. <input> is a solution or a graph.json written by
+        `analyze -o`; reusing a saved graph skips the slow solution load.
 
-    foreach (var group in graph.Edges.GroupBy(e => e.Kind).OrderBy(g => g.Key))
-    {
-        Console.WriteLine($"  {group.Key,-22}{group.Count(),6}");
-    }
+        Commands:
+          analyze    Extract types and dependencies; optionally save them as JSON
+          cycles     Find groups of namespaces (or types) that depend on each other in a loop
+          impact     List the types that depend on <type>, directly or indirectly
 
-    if (graph.Warnings.Count > 0)
-    {
-        Console.WriteLine();
-        Console.WriteLine($"Warnings ({graph.Warnings.Count}); the graph may be incomplete:");
-        foreach (var warning in graph.Warnings)
-        {
-            Console.WriteLine($"  - {warning}");
-        }
-    }
-}
-
-static void PrintUsage(TextWriter writer) => writer.WriteLine(
-    """
-
-    Usage:
-      codeatlas analyze <path> [-o|--output <file>]
-
-    Arguments:
-      <path>    A .sln, .slnx, or .csproj file to analyze
-
-    Options:
-      -o, --output <file>    Write the dependency graph as JSON to <file>
-    """);
-
-internal sealed class ConsoleProgress : IProgress<string>
-{
-    public void Report(string projectName) => Console.Error.WriteLine($"  Analyzing {projectName}");
+        Dependency kinds:
+          Inherits, Implements, ConstructorParameter, Field, Property, MethodSignature,
+          Instantiates, Calls, References
+        """);
+    return exitCode;
 }

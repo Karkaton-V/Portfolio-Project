@@ -99,7 +99,7 @@ public class EdgeExtractionTests
             public class Order { }
             public class Cart
             {
-                public Order Current { get; set; } = new();
+                public Order? Current { get; set; }
             }
             """);
 
@@ -114,8 +114,8 @@ public class EdgeExtractionTests
             public class Order { }
             public class Cart
             {
-                private Order _first = new();
-                private Order _second = new();
+                private Order? _first;
+                private Order? _second;
             }
             """);
 
