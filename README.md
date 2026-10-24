@@ -14,6 +14,46 @@ types depend on each other, from inheritance and constructor injection down to i
 **Real-world test:** [case study on jasontaylordev/CleanArchitecture](docs/case-studies/clean-architecture/README.md)
 (13 projects, 144 types): its layering rules pass, it has two deliberate cycles, and the run found three bugs in CodeAtlas that are now fixed.
 
+## Use it on your own solution
+
+CodeAtlas works on any C# solution. From the root of a repository:
+
+```bash
+codeatlas init      # finds the solution, guesses its layers from project names, writes codeatlas.json
+codeatlas check     # enforces those rules
+codeatlas report    # writes codeatlas-report.html
+```
+
+Every command takes an optional input: a folder (default: the current one), a `.sln`, `.slnx`, or `.csproj`, or
+a saved `graph.json`. A folder is searched for its solution, including a few levels down, so a repository with
+its solution in `src/` works from the root. When both `App.sln` and `App.slnx` exist, the newer `.slnx` is used.
+
+`init` sorts projects into layers by the conventions most .NET solutions follow (Domain/Core,
+Application/Services, Infrastructure/Persistence/Data, Web/Api/UI, and test projects) and writes the usual
+layering rules for the layers it finds. It then checks the solution against them, so the first run shows where
+things stand. Projects whose names fit no convention are listed in the file for you to place. On
+jasontaylordev/CleanArchitecture, `init` produced the same four rules as the hand-written
+[case study](docs/case-studies/clean-architecture/codeatlas.json), and all of them pass.
+
+`codeatlas.json` is found in the input's folder or any parent up to the repository root, the way
+`.editorconfig` is. Use `exclude` (or `--exclude`) to leave projects out, such as tests or samples:
+
+```bash
+codeatlas report --exclude "*Tests,Samples.*"
+```
+
+To run CodeAtlas as a command, install the .NET tool from a local build:
+
+```bash
+dotnet pack src/CodeAtlas.Cli -o artifacts
+```
+
+```bash
+dotnet tool install --global --add-source artifacts CodeAtlas.Tool
+```
+
+Or run it from source with `dotnet run --project src/CodeAtlas.Cli -- <command>`.
+
 ## Usage
 
 ```bash
@@ -58,14 +98,17 @@ Direct dependents
 
 | Command | Options |
 | --- | --- |
-| `analyze <solution>` | `-o <file>` save the graph as JSON |
-| `cycles <input>` | `--level namespace` (default) or `--level type` |
-| `impact <input> <type>` | `--depth <n>` limit the steps; `--kinds Calls,Implements` follow only some dependency kinds |
-| `check <input>` | `--config <file>` (default: `codeatlas.json` next to the input); `--sarif <file>`; `--path-prefix <dir>` |
-| `report <input>` | `-o <file>` (default `codeatlas-report.html`); `--config <file>` to include rule results; `--title <text>` |
+| `init [input]` | `--force` replace an existing codeatlas.json |
+| `analyze [input]` | `-o <file>` save the graph as JSON |
+| `cycles [input]` | `--level namespace` (default) or `--level type` |
+| `impact [input] <type>` | `--depth <n>` limit the steps; `--kinds Calls,Implements` follow only some dependency kinds |
+| `check [input]` | `--sarif <file>`; `--path-prefix <dir>` |
+| `report [input]` | `-o <file>` (default `codeatlas-report.html`); `--title <text>`; `--theme atlas\|nord\|solarized\|contrast` |
+| every command | `--config <file>` (default: found from the input's folder up); `--exclude <globs>` comma-separated project patterns |
 
-`<input>` is a solution or a saved `graph.json`. `<type>` can be a full name (`Shop.Domain.Orders.Order`), a
-simple name (`Order`), or a namespace suffix (`Orders.Order`). If the name is ambiguous, CodeAtlas lists the matches.
+`[input]` is a folder (default: the current one), a solution or project, or a saved `graph.json`. `<type>` can be
+a full name (`Shop.Domain.Orders.Order`), a simple name (`Order`), a namespace suffix (`Orders.Order`), or a type
+ID. If the name is ambiguous, CodeAtlas lists the matches with their projects and IDs.
 
 Exit codes: `0` success, `1` bad arguments or config, `2` analysis failed, `3` architecture rules failed.
 
@@ -116,6 +159,8 @@ Check failed: 2 error(s), 1 warning(s).
 | `severity` | `error` (default, fails the check) or `warning` |
 | `id` | Optional stable id for SARIF; defaults to a slug of the name |
 | `namespaceCycles` | `error` or `warning` to report every namespace cycle; omit to skip |
+| `exclude` | Projects to leave out of every command, e.g. `["*Tests", "Samples.*"]` (`*` matches anything, case-insensitive) |
+| `report` | Defaults for `codeatlas report`: `{ "title": "...", "theme": "nord" }` |
 
 Namespace patterns: `Shop.Domain` matches exactly; `*` matches within one segment (`Shop.*.Api`); a trailing
 `.**` matches the namespace and everything under it.
@@ -161,6 +206,13 @@ all inlined, so it opens offline, with no server, and can be attached to a CI ru
 - **Type view**: double-click a namespace to see its types, plus faded neighbors from other namespaces for context.
   Shape shows the kind of type; dashed edges are inheritance or interface implementation.
 - **Hover** a node to preview its connections; **click** to pin the selection. Press `/` to search.
+- **Themes**: four color themes (Atlas, Nord, Solarized, High contrast), each with light and dark variants, plus
+  an Auto/Light/Dark switch. The report opens in the theme set by `--theme` or `codeatlas.json`. A viewer's own
+  pick from the Theme menu is remembered in their browser, and a link like `report.html#theme=nord&mode=dark`
+  opens a specific look. Every theme's project palette passes the same colorblind-safety checks against its own
+  background in both modes.
+
+![The report in four themes](docs/images/themes.png)
 - **Details**: click any type for its source locations, coupling (used by, uses, instability), and what it depends
   on and what depends on it, with the kinds of each dependency.
 - **Impact**: "Show impact" redraws the graph as rings around the type: direct dependents, then 2 steps away, and so on.
@@ -275,6 +327,7 @@ Requires the .NET 10 SDK (pinned in `global.json`). The target framework is set 
 - [x] **v0.4** Self-contained interactive HTML report (Cytoscape.js) with coupling metrics
 - [x] **v0.5** .NET 10 LTS and Roslyn 5; case study on a real-world solution
 - [x] **v0.6** Parallel analysis (~3× faster), compact report data (-70%), redesigned report with layered diagrams, colored CLI output
+- [x] **v0.7** Works from any folder, `codeatlas init` generates rules for any solution, project exclusions, config discovery, report themes
 - [ ] **Later** Pull-request impact (`--since main`), analysis history across commits
 
 ## Third-party code

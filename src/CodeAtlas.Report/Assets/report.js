@@ -5,6 +5,42 @@
 
   const data = expand(JSON.parse(document.getElementById('codeatlas-data').textContent));
 
+  // ---------- appearance: color theme and light/dark mode ----------
+  // The report opens with the theme it was generated with; a viewer's own choice is remembered in their
+  // browser. Storage can be unavailable (private windows, blocked site data), so every access is guarded
+  // and the page works the same without it. Applied before anything is drawn, since node colors come from CSS.
+
+  const MODES = ['auto', 'light', 'dark'];
+  const THEME_INFO = {
+    atlas: ['Atlas', 'Balanced default'],
+    nord: ['Nord', 'Cool, low-glare slate'],
+    solarized: ['Solarized', 'Warm paper, deep teal'],
+    contrast: ['High contrast', 'Maximum legibility'],
+  };
+  const storage = {
+    get: key => { try { return localStorage.getItem(key); } catch { return null; } },
+    set: (key, value) => { try { localStorage.setItem(key, value); } catch { /* not persisted; still applied */ } },
+  };
+  const themes = data.themes ?? ['atlas'];
+  // Precedence: a link (report.html#theme=nord&mode=dark, for sharing a specific look), then the viewer's
+  // saved choice, then the theme the report was generated with.
+  const hash = new URLSearchParams(location.hash.slice(1));
+  const appearance = {
+    theme: [hash.get('theme'), storage.get('codeatlas:theme'), data.theme].find(t => themes.includes(t)) ?? themes[0],
+    mode: [hash.get('mode'), storage.get('codeatlas:mode')].find(m => MODES.includes(m)) ?? 'auto',
+  };
+  const prefersDark = matchMedia('(prefers-color-scheme: dark)');
+  const isDark = () => appearance.mode === 'dark' || (appearance.mode === 'auto' && prefersDark.matches);
+
+  function applyAppearance() {
+    const root = document.documentElement;
+    root.dataset.palette = appearance.theme;
+    if (appearance.mode === 'auto') delete root.dataset.mode;
+    else root.dataset.mode = appearance.mode;
+  }
+
+  applyAppearance();
+
   // The C# side writes edges and coupling as compact number arrays that point into the node, kind,
   // and file tables. Turn them back into objects once, up front.
   function expand(raw) {
@@ -118,7 +154,10 @@
   const projectSlot = new Map(
     [...projectCounts].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
       .map(([project], i) => [project, i < PROJECT_SLOTS ? i + 1 : 0]));
-  const projectColor = project => css(projectSlot.get(project) ? `--series-${projectSlot.get(project)}` : '--series-other');
+  const projectToken = project => (projectSlot.get(project) ? `--series-${projectSlot.get(project)}` : '--series-other');
+  // The canvas needs concrete colors; HTML uses the variable, so it follows theme changes on its own.
+  const projectColor = project => css(projectToken(project));
+  const projectColorVar = project => `var(${projectToken(project)})`;
 
   // Blends a color into the canvas color and returns an opaque result. Cards use this for their tint
   // instead of a translucent fill, so edges passing behind a card are hidden rather than showing through.
@@ -658,8 +697,8 @@
     // Which projects are on screen right now, in palette order, with "Other" last.
     const onScreen = new Set(cy.nodes().map(n => n.data('project')));
     const colored = [...projectSlot].filter(([p, slot]) => slot > 0 && onScreen.has(p)).sort((a, b) => a[1] - b[1]);
-    const projects = colored.map(([p]) => item(swatch(projectColor(p)), p));
-    if ([...onScreen].some(p => p && !projectSlot.get(p))) projects.push(item(swatch(css('--series-other')), 'Other projects'));
+    const projects = colored.map(([p]) => item(swatch(projectColorVar(p)), p));
+    if ([...onScreen].some(p => p && !projectSlot.get(p))) projects.push(item(swatch('var(--series-other)'), 'Other projects'));
 
     const rows = [];
     if (state.impactOf) {
@@ -735,7 +774,7 @@
       el('h2', { text: node.fullName }),
       el('div', { class: 'chips' },
         el('span', { class: 'chip', text: node.kind }),
-        el('span', { class: 'chip' }, el('i', { class: 'dot', style: `--swatch:${projectColor(node.project)}` }), node.project),
+        el('span', { class: 'chip' }, el('i', { class: 'dot', style: `--swatch:${projectColorVar(node.project)}` }), node.project),
         namespaceCycle.has(node.namespace) ? el('span', { class: 'chip danger', text: 'Namespace in a cycle' }) : null),
       ...node.locations.map(loc => el('div', { class: 'location', text: formatLocation(loc) })),
       coupling ? el('div', { class: 'metrics' },
@@ -926,7 +965,7 @@
       el('p', { class: 'subtle', text: 'Hide noisy kinds (like References) to see the structure.' }),
       ...ALL_KINDS.filter(k => kindCounts.has(k)).map(k => checkbox(state.kinds, k, k, kindCounts.get(k))),
       el('h3', { text: 'Projects' }),
-      ...[...projectCounts].sort((a, b) => a[0].localeCompare(b[0])).map(([p, count]) => checkbox(state.projects, p, p, count, projectColor(p))),
+      ...[...projectCounts].sort((a, b) => a[0].localeCompare(b[0])).map(([p, count]) => checkbox(state.projects, p, p, count, projectColorVar(p))),
     );
   }
 
@@ -1001,11 +1040,88 @@
   document.getElementById('fit').addEventListener('click', () => fitToView());
   document.getElementById('relayout').addEventListener('click', runLayout);
 
-  // Node colors are resolved from CSS variables, so a theme change redraws the graph with the new palette.
-  matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+  // ---------- theme picker ----------
+
+  // HTML follows the CSS variables by itself, but the canvas was painted with concrete colors, so repaint
+  // it in place: same positions and zoom, new palette.
+  function refreshColors() {
+    cy.batch(() => cy.nodes().forEach(n => {
+      const color = projectColor(n.data('project'));
+      n.data('color', color);
+      if (n.hasClass('card')) n.data('fill', tint(color, 0.16));
+    }));
     cy.style(graphStyle());
-    render();
-    renderFilters();
+    renderLegend();
+  }
+
+  const themeButton = document.getElementById('theme-button');
+  const themePopover = document.getElementById('theme-popover');
+
+  function renderThemePicker() {
+    const options = themes.map(name => {
+      const [label, description] = THEME_INFO[name] ?? [name, ''];
+      const swatches = el('span', { class: 'theme-swatches', 'aria-hidden': 'true' });
+      const option = el('button', {
+        type: 'button', role: 'radio', class: 'theme-option', 'data-palette': name,
+        'aria-checked': String(name === appearance.theme),
+        onclick: () => setAppearance({ theme: name }),
+      }, el('span', {}, el('strong', { text: label }), el('small', { text: description })), swatches);
+      return { option, swatches, name };
+    });
+    document.getElementById('theme-options').replaceChildren(...options.map(o => o.option));
+
+    // Each option carries its theme's data-palette, so its own computed style holds that theme's colors.
+    const prefix = isDark() ? '--d-series-' : '--l-series-';
+    for (const { option, swatches } of options) {
+      const style = getComputedStyle(option);
+      swatches.replaceChildren(...[1, 2, 3, 4, 5].map(i =>
+        el('i', { style: `--swatch:${style.getPropertyValue(prefix + i).trim()}` })));
+    }
+
+    for (const button of document.querySelectorAll('#mode-options [data-mode]')) {
+      button.setAttribute('aria-pressed', String(button.dataset.mode === appearance.mode));
+    }
+  }
+
+  function setAppearance(change) {
+    Object.assign(appearance, change);
+    storage.set('codeatlas:theme', appearance.theme);
+    storage.set('codeatlas:mode', appearance.mode);
+    applyAppearance();
+    refreshColors();
+    renderThemePicker();
+  }
+
+  const closeThemePicker = () => {
+    themePopover.hidden = true;
+    themeButton.setAttribute('aria-expanded', 'false');
+  };
+
+  themeButton.addEventListener('click', event => {
+    event.stopPropagation();
+    themePopover.hidden = !themePopover.hidden;
+    themeButton.setAttribute('aria-expanded', String(!themePopover.hidden));
+    if (!themePopover.hidden) renderThemePicker();
+  });
+  document.querySelectorAll('#mode-options [data-mode]').forEach(button =>
+    button.addEventListener('click', () => setAppearance({ mode: button.dataset.mode })));
+  // Close on clicks outside the menu. Picking a theme re-renders the options, which detaches the clicked
+  // button before this runs, so check the path recorded at dispatch rather than the (now detached) target.
+  document.addEventListener('click', event => {
+    if (!themePopover.hidden && !event.composedPath().includes(themePopover.parentElement)) closeThemePicker();
+  });
+  document.addEventListener('keydown', event => {
+    if (event.key === 'Escape' && !themePopover.hidden) {
+      closeThemePicker();
+      themeButton.focus();
+    }
+  });
+
+  // In Auto mode the page follows the operating system's light/dark setting live.
+  prefersDark.addEventListener('change', () => {
+    if (appearance.mode !== 'auto') return;
+    refreshColors();
+    if (!themePopover.hidden) renderThemePicker();
   });
 
   // ---------- start ----------
@@ -1015,8 +1131,8 @@
   document.getElementById('stats').replaceChildren(...stats.map(([value, label]) =>
     el('div', {}, el('dt', { text: label }), el('dd', { text: String(value) }))));
 
-  // A link like report.html#level=namespace opens on that level.
-  const requestedLevel = new URLSearchParams(location.hash.slice(1)).get('level');
+  // A link like report.html#level=namespace opens on that level (it can be combined with theme and mode).
+  const requestedLevel = hash.get('level');
   if (LEVELS.includes(requestedLevel)) state.level = requestedLevel;
 
   render();

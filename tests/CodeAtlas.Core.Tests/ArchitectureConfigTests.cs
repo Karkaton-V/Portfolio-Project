@@ -33,6 +33,28 @@ public class ArchitectureConfigTests
         Assert.Null(ArchitectureConfig.Parse("{}").NamespaceCycles);
     }
 
+    [Fact]
+    public void Reads_exclude_patterns_and_report_settings()
+    {
+        var config = ArchitectureConfig.Parse("""
+            { "exclude": ["*Tests", "Samples.*"], "report": { "title": "Shop", "theme": "Nord" } }
+            """);
+
+        Assert.Equal(["*Tests", "Samples.*"], config.Exclude);
+        Assert.Equal("Shop", config.Report.Title);
+        Assert.Equal("Nord", config.Report.Theme); // theme names are case-insensitive
+    }
+
+    [Fact]
+    public void Rejects_an_unknown_report_theme_and_lists_the_choices()
+    {
+        var error = Assert.Throws<ArchitectureConfigException>(() =>
+            ArchitectureConfig.Parse("""{ "report": { "theme": "neon" } }"""));
+
+        Assert.Contains("'neon'", error.Message);
+        Assert.Contains("solarized", error.Message);
+    }
+
     [Theory]
     [InlineData("""{ "rules": [{ "name": "R", "from": "A" }] }""", "exactly one of")]
     [InlineData("""{ "rules": [{ "name": "R", "from": "A", "forbid": ["B"], "mayOnlyDependOn": [] }] }""", "exactly one of")]

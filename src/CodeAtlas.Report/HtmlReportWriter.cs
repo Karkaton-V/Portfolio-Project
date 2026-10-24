@@ -18,6 +18,9 @@ public sealed record ReportOptions
 
     /// <summary>Results of <c>codeatlas check</c> to show in the report, if a config was available.</summary>
     public CheckResult? Check { get; init; }
+
+    /// <summary>The theme the report opens with (one of <see cref="ReportThemes.Names"/>). A viewer's own pick, saved in their browser, wins.</summary>
+    public string Theme { get; init; } = ReportThemes.Default;
 }
 
 /// <summary>
@@ -39,6 +42,12 @@ public static partial class HtmlReportWriter
 
     public static string Write(DependencyGraph graph, ReportOptions options)
     {
+        if (!ReportThemes.IsKnown(options.Theme))
+        {
+            throw new ArgumentException(
+                $"Unknown theme '{options.Theme}'. Choose one of: {string.Join(", ", ReportThemes.Names)}.", nameof(options));
+        }
+
         // Edges are by far the most numerous records, and as objects each one repeated two long type ids
         // and a file path (~350 bytes). They're written as number arrays that point into the node, kind,
         // and file tables instead (~20 bytes); the page's script expands them when it loads.
@@ -66,6 +75,8 @@ public static partial class HtmlReportWriter
             options.Title,
             options.ToolVersion,
             GeneratedAt = options.GeneratedAt.ToString("u"),
+            Theme = options.Theme.ToLowerInvariant(),
+            Themes = ReportThemes.Names,
             Kinds = kinds,
             Files = files, // the same list instance; building Nodes and Edges below fills it in
             Nodes = graph.Nodes.Select(n => new

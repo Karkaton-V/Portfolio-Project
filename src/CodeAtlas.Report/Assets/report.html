@@ -21,6 +21,25 @@
     <span class="divider" aria-hidden="true"></span>
     <h1 id="title"></h1>
     <dl class="stats" id="stats"></dl>
+    <div class="theme-menu">
+      <button type="button" class="theme-button" id="theme-button" aria-haspopup="true" aria-expanded="false" aria-controls="theme-popover">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M12 3a9 9 0 1 0 0 18c1.1 0 1.6-.7 1.6-1.5 0-.5-.2-.8-.4-1.1-.3-.3-.4-.7-.4-1.1 0-.9.7-1.5 1.6-1.5H16a5 5 0 0 0 5-5c0-4.4-4-7.8-9-7.8z" />
+          <circle cx="7.5" cy="11.5" r="1" /><circle cx="10.5" cy="7.5" r="1" /><circle cx="15.5" cy="8" r="1" />
+        </svg>
+        <span>Theme</span>
+      </button>
+      <div class="theme-popover" id="theme-popover" hidden>
+        <div class="popover-label" id="theme-label">Theme</div>
+        <div id="theme-options" role="radiogroup" aria-labelledby="theme-label"></div>
+        <div class="popover-label">Mode</div>
+        <div class="segmented" role="group" aria-label="Light or dark mode" id="mode-options">
+          <button type="button" data-mode="auto" aria-pressed="true">Auto</button>
+          <button type="button" data-mode="light" aria-pressed="false">Light</button>
+          <button type="button" data-mode="dark" aria-pressed="false">Dark</button>
+        </div>
+      </div>
+    </div>
   </header>
 
   <div class="layout">

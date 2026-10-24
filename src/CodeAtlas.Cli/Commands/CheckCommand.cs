@@ -6,25 +6,23 @@ namespace CodeAtlas.Cli.Commands;
 
 internal static class CheckCommand
 {
-    internal const string DefaultConfigFileName = "codeatlas.json";
-
     public static async Task<int> RunAsync(IReadOnlyList<string> args, CancellationToken cancellationToken)
     {
         var arguments = CliArguments.Parse(args, new Dictionary<string, string>
         {
             ["--config"] = "config",
+            ["--exclude"] = "exclude",
             ["--sarif"] = "sarif",
             ["--path-prefix"] = "path-prefix",
         });
-        arguments.ExpectPositionals("input");
+        arguments.ExpectPositionals(1, "input");
 
-        var inputPath = Path.GetFullPath(arguments.Positionals[0]);
-        var inputDirectory = Path.GetDirectoryName(inputPath) ?? ".";
-
-        // Read the config before loading the solution, so a typo fails in milliseconds, not minutes.
-        var config = await LoadConfigAsync(
-            arguments.Option("config") ?? Path.Combine(inputDirectory, DefaultConfigFileName), cancellationToken);
-        var graph = await GraphInput.LoadAsync(arguments.Positionals[0], cancellationToken);
+        // The config is read before the solution is loaded, so a typo fails in milliseconds, not minutes.
+        var session = await Session.OpenAsync(
+            arguments.Positionals.FirstOrDefault(), arguments.Option("config"), arguments.Option("exclude"), requireConfig: true, cancellationToken);
+        var config = session.Config ?? throw new InvalidOperationException("A config is required here.");
+        var inputPath = session.Input;
+        var graph = await session.LoadGraphAsync(cancellationToken);
         var result = ArchitectureChecker.Check(graph, config);
 
         PrintReport(graph, result);
@@ -37,25 +35,6 @@ internal static class CheckCommand
         }
 
         return result.ErrorCount > 0 ? ExitCodes.RuleViolations : ExitCodes.Success;
-    }
-
-    internal static async Task<ArchitectureConfig> LoadConfigAsync(string path, CancellationToken cancellationToken)
-    {
-        if (!File.Exists(path))
-        {
-            throw new UsageException(
-                $"Config file not found: {path}. Create {DefaultConfigFileName} next to the input or pass --config.",
-                showUsage: false);
-        }
-
-        try
-        {
-            return ArchitectureConfig.Parse(await File.ReadAllTextAsync(path, cancellationToken));
-        }
-        catch (ArchitectureConfigException ex)
-        {
-            throw new UsageException($"Invalid config {path}: {ex.Message}", showUsage: false);
-        }
     }
 
     private static void PrintReport(DependencyGraph graph, CheckResult result)

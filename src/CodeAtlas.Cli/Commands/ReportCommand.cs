@@ -1,3 +1,4 @@
+using CodeAtlas.Core;
 using CodeAtlas.Core.Rules;
 using CodeAtlas.Report;
 
@@ -14,26 +15,29 @@ internal static class ReportCommand
             ["-o"] = "output",
             ["--output"] = "output",
             ["--config"] = "config",
+            ["--exclude"] = "exclude",
             ["--title"] = "title",
+            ["--theme"] = "theme",
         });
-        arguments.ExpectPositionals("input");
+        arguments.ExpectPositionals(1, "input");
 
-        var inputPath = Path.GetFullPath(arguments.Positionals[0]);
+        if (arguments.Option("theme") is { } requested && !ReportThemes.IsKnown(requested))
+        {
+            throw new UsageException($"Unknown theme '{requested}'. Choose one of: {string.Join(", ", ReportThemes.Names)}.", showUsage: false);
+        }
 
-        // Rule results are optional in a report: use --config, or codeatlas.json next to the input if there is one.
-        var configPath = arguments.Option("config")
-            ?? Path.Combine(Path.GetDirectoryName(inputPath) ?? ".", CheckCommand.DefaultConfigFileName);
-        var config = arguments.Option("config") is not null || File.Exists(configPath)
-            ? await CheckCommand.LoadConfigAsync(configPath, cancellationToken)
-            : null;
-
-        var graph = await GraphInput.LoadAsync(arguments.Positionals[0], cancellationToken);
+        // Rule results are optional in a report: they're included when a codeatlas.json applies.
+        var session = await Session.OpenAsync(
+            arguments.Positionals.FirstOrDefault(), arguments.Option("config"), arguments.Option("exclude"), requireConfig: false, cancellationToken);
+        var graph = await session.LoadGraphAsync(cancellationToken);
+        var settings = session.Config?.Report ?? new ReportSettings();
 
         var html = HtmlReportWriter.Write(graph, new ReportOptions
         {
-            Title = arguments.Option("title") ?? Path.GetFileNameWithoutExtension(inputPath),
+            Title = arguments.Option("title") ?? settings.Title ?? Path.GetFileNameWithoutExtension(session.Input),
+            Theme = (arguments.Option("theme") ?? settings.Theme ?? ReportThemes.Default).ToLowerInvariant(),
             ToolVersion = CheckCommand.ToolVersion(),
-            Check = config is null ? null : ArchitectureChecker.Check(graph, config),
+            Check = session.Config is null ? null : ArchitectureChecker.Check(graph, session.Config),
         });
 
         var outputPath = Path.GetFullPath(arguments.Option("output") ?? DefaultOutput);
@@ -41,9 +45,9 @@ internal static class ReportCommand
 
         Console.WriteLine();
         Console.WriteLine($"Wrote report for {graph.Nodes.Count} types to {outputPath}");
-        if (config is not null)
+        if (session.ConfigPath is not null)
         {
-            Console.WriteLine($"Included architecture rules from {configPath}");
+            Console.WriteLine(Ansi.Dim($"Included architecture rules from {session.ConfigPath}"));
         }
 
         return ExitCodes.Success;

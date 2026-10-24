@@ -8,8 +8,13 @@ internal static class CyclesCommand
 
     public static async Task<int> RunAsync(IReadOnlyList<string> args, CancellationToken cancellationToken)
     {
-        var arguments = CliArguments.Parse(args, new Dictionary<string, string> { ["--level"] = "level" });
-        arguments.ExpectPositionals("input");
+        var arguments = CliArguments.Parse(args, new Dictionary<string, string>
+        {
+            ["--level"] = "level",
+            ["--config"] = "config",
+            ["--exclude"] = "exclude",
+        });
+        arguments.ExpectPositionals(1, "input");
 
         var level = arguments.Option("level") switch
         {
@@ -18,7 +23,9 @@ internal static class CyclesCommand
             var other => throw new UsageException($"Unknown level '{other}'. Use 'namespace' or 'type'."),
         };
 
-        var graph = await GraphInput.LoadAsync(arguments.Positionals[0], cancellationToken);
+        var session = await Session.OpenAsync(
+            arguments.Positionals.FirstOrDefault(), arguments.Option("config"), arguments.Option("exclude"), requireConfig: false, cancellationToken);
+        var graph = await session.LoadGraphAsync(cancellationToken);
         var nodes = graph.Nodes.ToDictionary(n => n.Id);
         var cycles = CycleDetector.FindCycles(graph, level);
         var levelName = level == CycleLevel.Namespace ? "namespace" : "type";

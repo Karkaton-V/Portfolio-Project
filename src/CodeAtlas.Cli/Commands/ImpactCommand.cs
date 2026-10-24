@@ -11,13 +11,20 @@ internal static class ImpactCommand
         {
             ["--depth"] = "depth",
             ["--kinds"] = "kinds",
+            ["--config"] = "config",
+            ["--exclude"] = "exclude",
         });
-        arguments.ExpectPositionals("input", "type");
+        arguments.ExpectPositionals(1, "input", "type");
+
+        // `impact Order` analyzes the current folder; `impact graph.json Order` names the input.
+        var (input, typeQuery) = arguments.Positionals is [var only] ? (null, only) : (arguments.Positionals[0], arguments.Positionals[1]);
 
         var maxDepth = ParseDepth(arguments.Option("depth"));
         var kinds = ParseKinds(arguments.Option("kinds"));
-        var graph = await GraphInput.LoadAsync(arguments.Positionals[0], cancellationToken);
-        var target = FindTarget(graph, arguments.Positionals[1]);
+        var session = await Session.OpenAsync(
+            input, arguments.Option("config"), arguments.Option("exclude"), requireConfig: false, cancellationToken);
+        var graph = await session.LoadGraphAsync(cancellationToken);
+        var target = FindTarget(graph, typeQuery);
         var nodes = graph.Nodes.ToDictionary(n => n.Id);
 
         var impacted = ImpactAnalyzer.FindDependents(graph, target.Id, maxDepth, kinds);

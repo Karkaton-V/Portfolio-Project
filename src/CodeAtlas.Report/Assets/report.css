@@ -1,37 +1,93 @@
-/* ---------- Tokens ----------
-   The --series-* hues identify projects. They were checked with a colorblind-safety validator against
-   each theme's --canvas (adjacent-pair separation, lightness band, chroma); dark mode uses its own
-   stepped values rather than an automatic inversion. Red is deliberately absent: it means "cycle". */
+/* ---------- Themes ----------
+   Each theme defines a light (--l-*) and a dark (--d-*) set of tokens; the mode block below maps one set onto
+   the variables the page uses. So themes and light/dark are independent: any theme in any mode.
+
+   The --*-series-* hues identify projects. Every theme's palette was checked with a colorblind-safety
+   validator against that theme's own canvas, separately for light and dark (adjacent-pair separation under
+   protan/deutan/tritan simulation, a normal-vision floor, lightness band, chroma floor). Red is never a series
+   color: it means "cycle". Theme selectors match any element, so the theme picker can preview each palette. */
+
+:root,
+[data-palette="atlas"] {
+  --l-bg: #f4f5f7; --l-surface: #ffffff; --l-surface-2: #f0f2f5; --l-canvas: #f6f7f9; --l-grid-dot: #dde1e7;
+  --l-border: #e3e6eb; --l-border-strong: #cfd4dc; --l-text: #161b26; --l-muted: #5c6575; --l-faint: #8a93a3;
+  --l-accent: #2a63d4; --l-accent-soft: #e5edfc; --l-danger: #d23f3a; --l-danger-soft: #fdeceb;
+  --l-warn: #a8660d; --l-warn-soft: #fcf2dd; --l-ok: #24804f; --l-ok-soft: #e2f3e9; --l-edge: #a3acba;
+  --l-series-1: #2a78d6; --l-series-2: #eb6834; --l-series-3: #1baf7a; --l-series-4: #eda100;
+  --l-series-5: #e87ba4; --l-series-6: #008300; --l-series-7: #6250d6; --l-series-other: #8a93a3;
+
+  --d-bg: #0e1116; --d-surface: #151a21; --d-surface-2: #1d232c; --d-canvas: #12161d; --d-grid-dot: #222934;
+  --d-border: #262d38; --d-border-strong: #343d4b; --d-text: #e6e9ef; --d-muted: #9aa3b2; --d-faint: #6d7686;
+  --d-accent: #6d9ff7; --d-accent-soft: #1b2a45; --d-danger: #f2736b; --d-danger-soft: #3a1f22;
+  --d-warn: #e6a64c; --d-warn-soft: #362a15; --d-ok: #5cc28c; --d-ok-soft: #15301f; --d-edge: #4c5667;
+  --d-series-1: #3987e5; --d-series-2: #d95926; --d-series-3: #199e70; --d-series-4: #c98500;
+  --d-series-5: #d55181; --d-series-6: #008300; --d-series-7: #9085e9; --d-series-other: #6d7686;
+}
+
+/* Nord: cool, low-glare slate. */
+[data-palette="nord"] {
+  --l-bg: #e5e9f0; --l-surface: #f8f9fb; --l-surface-2: #eceff4; --l-canvas: #eef1f6; --l-grid-dot: #d3d9e3;
+  --l-border: #d8dee9; --l-border-strong: #c2cad8; --l-text: #2e3440; --l-muted: #4c566a; --l-faint: #7b8598;
+  --l-accent: #5e81ac; --l-accent-soft: #dde6f1; --l-danger: #bf616a; --l-danger-soft: #f6e4e6;
+  --l-warn: #a2702a; --l-warn-soft: #f5ecdc; --l-ok: #4f8a5b; --l-ok-soft: #e3efe5; --l-edge: #a7b1c2;
+  --l-series-1: #3f6fb0; --l-series-2: #c56a3a; --l-series-3: #2f9a7a; --l-series-4: #b88a00;
+  --l-series-5: #b05f9e; --l-series-6: #4f8f2f; --l-series-7: #7a5fc0; --l-series-other: #7b8598;
+
+  --d-bg: #242933; --d-surface: #2e3440; --d-surface-2: #3b4252; --d-canvas: #292e39; --d-grid-dot: #353c4a;
+  --d-border: #3b4252; --d-border-strong: #4c566a; --d-text: #eceff4; --d-muted: #b6bfcd; --d-faint: #7b8598;
+  --d-accent: #88c0d0; --d-accent-soft: #34485a; --d-danger: #d77f88; --d-danger-soft: #4a3238;
+  --d-warn: #ebcb8b; --d-warn-soft: #4a4232; --d-ok: #a3be8c; --d-ok-soft: #36443a; --d-edge: #586377;
+  --d-series-1: #5a8bd0; --d-series-2: #cc7448; --d-series-3: #36a084; --d-series-4: #b08515;
+  --d-series-5: #b8689f; --d-series-6: #649f45; --d-series-7: #8a73cf; --d-series-other: #7b8598;
+}
+
+/* Solarized: warm paper and deep teal, with Solarized's own accent colors. */
+[data-palette="solarized"] {
+  --l-bg: #eee8d5; --l-surface: #fdf6e3; --l-surface-2: #f3ecd8; --l-canvas: #fdf6e3; --l-grid-dot: #e4dcc4;
+  --l-border: #e4dcc4; --l-border-strong: #d3c9ab; --l-text: #073642; --l-muted: #586e75; --l-faint: #93a1a1;
+  --l-accent: #268bd2; --l-accent-soft: #e2ecee; --l-danger: #dc322f; --l-danger-soft: #f8e1d6;
+  --l-warn: #b58900; --l-warn-soft: #f3e8c6; --l-ok: #6f8000; --l-ok-soft: #ecedcc; --l-edge: #b5ad97;
+  --l-series-1: #268bd2; --l-series-2: #cb4b16; --l-series-3: #2aa198; --l-series-4: #b58900;
+  --l-series-5: #d33682; --l-series-6: #859900; --l-series-7: #6c71c4; --l-series-other: #93a1a1;
+
+  --d-bg: #00212b; --d-surface: #002b36; --d-surface-2: #073642; --d-canvas: #00252f; --d-grid-dot: #0d3a45;
+  --d-border: #0d3a45; --d-border-strong: #1a4a56; --d-text: #eee8d5; --d-muted: #93a1a1; --d-faint: #657b83;
+  --d-accent: #268bd2; --d-accent-soft: #0b3a52; --d-danger: #e0524f; --d-danger-soft: #3b1f22;
+  --d-warn: #c99a12; --d-warn-soft: #2f2a12; --d-ok: #95aa10; --d-ok-soft: #1d2a12; --d-edge: #4a6670;
+  --d-series-1: #268bd2; --d-series-2: #cb4b16; --d-series-3: #2aa198; --d-series-4: #b58900;
+  --d-series-5: #d33682; --d-series-6: #859900; --d-series-7: #6c71c4; --d-series-other: #657b83;
+}
+
+/* High contrast: pure white or black, strong borders, and series colors that all clear 3:1 against the canvas. */
+[data-palette="contrast"] {
+  --l-bg: #ffffff; --l-surface: #ffffff; --l-surface-2: #eeeeee; --l-canvas: #ffffff; --l-grid-dot: #d6d6d6;
+  --l-border: #8a8a8a; --l-border-strong: #505050; --l-text: #000000; --l-muted: #262626; --l-faint: #4a4a4a;
+  --l-accent: #0047c2; --l-accent-soft: #dbe6ff; --l-danger: #c00018; --l-danger-soft: #ffe0e3;
+  --l-warn: #8a5200; --l-warn-soft: #fff0d6; --l-ok: #0b6b2e; --l-ok-soft: #dcf5e4; --l-edge: #4a4a4a;
+  --l-series-1: #1f5fb0; --l-series-2: #c4450f; --l-series-3: #0b7f58; --l-series-4: #9b5f00;
+  --l-series-5: #b8306a; --l-series-6: #2e7d00; --l-series-7: #5a45c4; --l-series-other: #505050;
+
+  --d-bg: #000000; --d-surface: #0a0a0a; --d-surface-2: #1c1c1c; --d-canvas: #000000; --d-grid-dot: #2a2a2a;
+  --d-border: #8a8a8a; --d-border-strong: #c4c4c4; --d-text: #ffffff; --d-muted: #e6e6e6; --d-faint: #c2c2c2;
+  --d-accent: #6ea8ff; --d-accent-soft: #10264d; --d-danger: #ff5c6c; --d-danger-soft: #3d0a10;
+  --d-warn: #ffc24d; --d-warn-soft: #3a2a00; --d-ok: #5fe08f; --d-ok-soft: #0b2e18; --d-edge: #a0a0a0;
+  --d-series-1: #3a8ae8; --d-series-2: #e0662f; --d-series-3: #12a777; --d-series-4: #b88600;
+  --d-series-5: #e04d8e; --d-series-6: #45a52a; --d-series-7: #8f78ee; --d-series-other: #a0a0a0;
+}
+
+/* ---------- Mode: map the light or dark set onto the variables the page uses ----------
+   Auto follows the operating system; data-mode="light" or "dark" (set by the theme picker) overrides it. */
 
 :root {
   color-scheme: light;
-  --bg: #f4f5f7;
-  --surface: #ffffff;
-  --surface-2: #f0f2f5;
-  --canvas: #f6f7f9;
-  --grid-dot: #dde1e7;
-  --border: #e3e6eb;
-  --border-strong: #cfd4dc;
-  --text: #161b26;
-  --muted: #5c6575;
-  --faint: #8a93a3;
-  --accent: #2a63d4;
-  --accent-soft: #e5edfc;
-  --danger: #d23f3a;
-  --danger-soft: #fdeceb;
-  --warn: #a8660d;
-  --warn-soft: #fcf2dd;
-  --ok: #24804f;
-  --ok-soft: #e2f3e9;
-  --edge: #a3acba;
-  --series-1: #2a78d6;
-  --series-2: #eb6834;
-  --series-3: #1baf7a;
-  --series-4: #eda100;
-  --series-5: #e87ba4;
-  --series-6: #008300;
-  --series-7: #6250d6;
-  --series-other: #8a93a3;
+  --bg: var(--l-bg); --surface: var(--l-surface); --surface-2: var(--l-surface-2); --canvas: var(--l-canvas);
+  --grid-dot: var(--l-grid-dot); --border: var(--l-border); --border-strong: var(--l-border-strong);
+  --text: var(--l-text); --muted: var(--l-muted); --faint: var(--l-faint); --accent: var(--l-accent);
+  --accent-soft: var(--l-accent-soft); --danger: var(--l-danger); --danger-soft: var(--l-danger-soft);
+  --warn: var(--l-warn); --warn-soft: var(--l-warn-soft); --ok: var(--l-ok); --ok-soft: var(--l-ok-soft);
+  --edge: var(--l-edge);
+  --series-1: var(--l-series-1); --series-2: var(--l-series-2); --series-3: var(--l-series-3); --series-4: var(--l-series-4);
+  --series-5: var(--l-series-5); --series-6: var(--l-series-6); --series-7: var(--l-series-7); --series-other: var(--l-series-other);
   --shadow-sm: 0 1px 2px rgba(16, 24, 40, 0.06), 0 1px 3px rgba(16, 24, 40, 0.08);
   --shadow-md: 0 4px 8px -2px rgba(16, 24, 40, 0.08), 0 2px 4px -2px rgba(16, 24, 40, 0.06);
   --shadow-lg: 0 12px 24px -6px rgba(16, 24, 40, 0.16), 0 4px 8px -4px rgba(16, 24, 40, 0.08);
@@ -42,40 +98,43 @@
 }
 
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-mode="light"]) {
     color-scheme: dark;
-    --bg: #0e1116;
-    --surface: #151a21;
-    --surface-2: #1d232c;
-    --canvas: #12161d;
-    --grid-dot: #222934;
-    --border: #262d38;
-    --border-strong: #343d4b;
-    --text: #e6e9ef;
-    --muted: #9aa3b2;
-    --faint: #6d7686;
-    --accent: #6d9ff7;
-    --accent-soft: #1b2a45;
-    --danger: #f2736b;
-    --danger-soft: #3a1f22;
-    --warn: #e6a64c;
-    --warn-soft: #362a15;
-    --ok: #5cc28c;
-    --ok-soft: #15301f;
-    --edge: #4c5667;
-    --series-1: #3987e5;
-    --series-2: #d95926;
-    --series-3: #199e70;
-    --series-4: #c98500;
-    --series-5: #d55181;
-    --series-6: #008300;
-    --series-7: #9085e9;
-    --series-other: #6d7686;
+    --bg: var(--d-bg); --surface: var(--d-surface); --surface-2: var(--d-surface-2); --canvas: var(--d-canvas);
+    --grid-dot: var(--d-grid-dot); --border: var(--d-border); --border-strong: var(--d-border-strong);
+    --text: var(--d-text); --muted: var(--d-muted); --faint: var(--d-faint); --accent: var(--d-accent);
+    --accent-soft: var(--d-accent-soft); --danger: var(--d-danger); --danger-soft: var(--d-danger-soft);
+    --warn: var(--d-warn); --warn-soft: var(--d-warn-soft); --ok: var(--d-ok); --ok-soft: var(--d-ok-soft);
+    --edge: var(--d-edge);
+    --series-1: var(--d-series-1); --series-2: var(--d-series-2); --series-3: var(--d-series-3); --series-4: var(--d-series-4);
+    --series-5: var(--d-series-5); --series-6: var(--d-series-6); --series-7: var(--d-series-7); --series-other: var(--d-series-other);
     --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
     --shadow-md: 0 4px 10px -2px rgba(0, 0, 0, 0.45);
     --shadow-lg: 0 16px 32px -8px rgba(0, 0, 0, 0.6);
   }
 }
+
+:root[data-mode="dark"] {
+  color-scheme: dark;
+  --bg: var(--d-bg); --surface: var(--d-surface); --surface-2: var(--d-surface-2); --canvas: var(--d-canvas);
+  --grid-dot: var(--d-grid-dot); --border: var(--d-border); --border-strong: var(--d-border-strong);
+  --text: var(--d-text); --muted: var(--d-muted); --faint: var(--d-faint); --accent: var(--d-accent);
+  --accent-soft: var(--d-accent-soft); --danger: var(--d-danger); --danger-soft: var(--d-danger-soft);
+  --warn: var(--d-warn); --warn-soft: var(--d-warn-soft); --ok: var(--d-ok); --ok-soft: var(--d-ok-soft);
+  --edge: var(--d-edge);
+  --series-1: var(--d-series-1); --series-2: var(--d-series-2); --series-3: var(--d-series-3); --series-4: var(--d-series-4);
+  --series-5: var(--d-series-5); --series-6: var(--d-series-6); --series-7: var(--d-series-7); --series-other: var(--d-series-other);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 4px 10px -2px rgba(0, 0, 0, 0.45);
+  --shadow-lg: 0 16px 32px -8px rgba(0, 0, 0, 0.6);
+}
+
+/* High contrast: heavier outlines on cards, panels, and controls. */
+[data-palette="contrast"] .finding,
+[data-palette="contrast"] .metric,
+[data-palette="contrast"] .button,
+[data-palette="contrast"] .controls-float,
+[data-palette="contrast"] .legend { border-width: 2px; }
 
 /* ---------- Base ---------- */
 
@@ -162,6 +221,71 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
 .stats dt { color: var(--muted); font-size: 12.5px; order: 2; }
 .stats dd { margin: 0; font-weight: 650; font-variant-numeric: tabular-nums; font-size: 13px; }
 
+/* ---------- Theme picker ---------- */
+
+.theme-menu { position: relative; }
+
+.theme-button {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  border-radius: 999px;
+  padding: 4px 12px 4px 9px;
+  font-size: 13px;
+  font-weight: 550;
+  color: var(--muted);
+  transition: background 120ms, color 120ms;
+}
+
+.theme-button:hover, .theme-button[aria-expanded="true"] { color: var(--text); background: var(--surface-2); }
+.theme-button svg { width: 16px; height: 16px; }
+
+.theme-popover {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 8px);
+  width: 270px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-lg);
+  padding: 8px;
+  z-index: 30;
+}
+
+.popover-label {
+  font-size: 11.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--faint);
+  font-weight: 650;
+  margin: 6px 6px 6px;
+}
+
+.theme-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  border: 1px solid transparent;
+  background: none;
+  padding: 7px 8px;
+  border-radius: var(--radius-sm);
+  text-align: left;
+  transition: background 100ms;
+}
+
+.theme-option:hover { background: var(--surface-2); }
+.theme-option[aria-checked="true"] { border-color: var(--accent); background: var(--accent-soft); }
+.theme-option strong { display: block; font-size: 13px; font-weight: 600; }
+.theme-option small { display: block; font-size: 12px; color: var(--muted); }
+.theme-swatches { display: flex; gap: 3px; flex: none; }
+.theme-swatches i { width: 10px; height: 10px; border-radius: 50%; background: var(--swatch); }
+.theme-popover .segmented { margin: 0 2px 2px; }
+
 /* ---------- Layout ---------- */
 
 .layout {
@@ -229,10 +353,12 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
 
 .segmented button:hover { color: var(--text); }
 
+/* The outline keeps the selected segment clear in every theme; in dark themes the surface color alone is
+   darker than the track and barely stands out. */
 .segmented button[aria-pressed="true"] {
   background: var(--surface);
   color: var(--text);
-  box-shadow: var(--shadow-sm);
+  box-shadow: inset 0 0 0 1px var(--border-strong), var(--shadow-sm);
 }
 
 .search { position: relative; display: block; }
@@ -643,5 +769,7 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
   .topbar { height: auto; padding: 10px 16px; flex-wrap: wrap; row-gap: 8px; }
   .divider { display: none; }
   .stats { margin-left: 0; flex-wrap: wrap; width: 100%; }
+  .theme-menu { position: absolute; top: 10px; right: 16px; }
+  .topbar { position: relative; }
   .search kbd { display: none; }
 }

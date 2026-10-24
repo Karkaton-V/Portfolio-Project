@@ -10,10 +10,14 @@ internal static class AnalyzeCommand
         {
             ["-o"] = "output",
             ["--output"] = "output",
+            ["--config"] = "config",
+            ["--exclude"] = "exclude",
         });
-        arguments.ExpectPositionals("solution");
+        arguments.ExpectPositionals(1, "input");
 
-        var graph = await GraphInput.LoadAsync(arguments.Positionals[0], cancellationToken);
+        var session = await Session.OpenAsync(
+            arguments.Positionals.FirstOrDefault(), arguments.Option("config"), arguments.Option("exclude"), requireConfig: false, cancellationToken);
+        var graph = await session.LoadGraphAsync(cancellationToken);
 
         var projectCount = graph.Nodes.Select(n => n.Project).Distinct().Count();
         Console.WriteLine();

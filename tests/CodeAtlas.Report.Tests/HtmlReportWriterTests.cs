@@ -134,6 +134,21 @@ public class HtmlReportWriterTests
     }
 
     [Fact]
+    public void Embeds_the_starting_theme_and_the_theme_list()
+    {
+        var data = EmbeddedData(HtmlReportWriter.Write(Graph, new ReportOptions { Title = "Shop", Theme = "Solarized" }));
+
+        Assert.Equal("solarized", data.GetProperty("theme").GetString());
+        Assert.Equal(ReportThemes.Names, data.GetProperty("themes").EnumerateArray().Select(t => t.GetString()));
+    }
+
+    [Fact]
+    public void Rejects_an_unknown_theme()
+    {
+        Assert.Throws<ArgumentException>(() => HtmlReportWriter.Write(Graph, new ReportOptions { Title = "Shop", Theme = "neon" }));
+    }
+
+    [Fact]
     public void Ships_every_asset_the_page_needs()
     {
         foreach (var asset in new[] { "report.html", "report.css", "report.js", "cytoscape.min.js", "cytoscape.LICENSE" })

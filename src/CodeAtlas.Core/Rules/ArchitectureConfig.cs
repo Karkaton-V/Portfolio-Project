@@ -75,6 +75,12 @@ public sealed record ArchitectureConfig
     /// <summary>When set, every namespace cycle is reported with this severity.</summary>
     public RuleSeverity? NamespaceCycles { get; init; }
 
+    /// <summary>Projects to leave out of every command, as <see cref="ProjectFilter"/> globs (e.g. <c>*Tests</c>).</summary>
+    public IReadOnlyList<string> Exclude { get; init; } = [];
+
+    /// <summary>Defaults for <c>codeatlas report</c>.</summary>
+    public ReportSettings Report { get; init; } = new();
+
     public static ArchitectureConfig Parse(string json)
     {
         ArchitectureConfig? config;
@@ -102,6 +108,12 @@ public sealed record ArchitectureConfig
 
     private void Validate()
     {
+        if (Report.Theme is { } theme && !ReportThemes.IsKnown(theme))
+        {
+            throw new ArchitectureConfigException(
+                $"Unknown report theme '{theme}'. Choose one of: {string.Join(", ", ReportThemes.Names)}.");
+        }
+
         foreach (var (name, selectors) in Layers)
         {
             if (selectors.Count == 0)
@@ -173,4 +185,13 @@ internal sealed class Selector
 
     public bool Matches(CodeNode node) =>
         _projects.Contains(node.Project, StringComparer.Ordinal) || _namespaces.Any(p => p.Matches(node.Namespace));
+}
+
+/// <summary>The <c>report</c> section of <c>codeatlas.json</c>. Command-line options override these.</summary>
+public sealed record ReportSettings
+{
+    /// <summary>One of <see cref="ReportThemes.Names"/>. Viewers can still switch themes in the report itself.</summary>
+    public string? Theme { get; init; }
+
+    public string? Title { get; init; }
 }

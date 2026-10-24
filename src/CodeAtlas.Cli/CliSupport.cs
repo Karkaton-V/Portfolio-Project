@@ -1,5 +1,6 @@
 using CodeAtlas.Analysis;
 using CodeAtlas.Core;
+using CodeAtlas.Core.Rules;
 
 namespace CodeAtlas.Cli;
 
@@ -19,20 +20,34 @@ internal sealed class UsageException(string message, bool showUsage = true) : Ex
     public bool ShowUsage { get; } = showUsage;
 }
 
-/// <summary>Positional arguments plus <c>--name value</c> options. Every option takes a value.</summary>
-internal sealed record CliArguments(IReadOnlyList<string> Positionals, IReadOnlyDictionary<string, string> Options)
+/// <summary>Positional arguments, <c>--name value</c> options, and value-less <c>--flag</c>s.</summary>
+internal sealed record CliArguments(
+    IReadOnlyList<string> Positionals,
+    IReadOnlyDictionary<string, string> Options,
+    IReadOnlySet<string> Flags)
 {
     /// <param name="aliases">Maps each accepted spelling (<c>-o</c>, <c>--output</c>) to the option's name.</param>
-    public static CliArguments Parse(IReadOnlyList<string> args, IReadOnlyDictionary<string, string> aliases)
+    /// <param name="flags">Options that take no value, such as <c>--force</c>.</param>
+    public static CliArguments Parse(
+        IReadOnlyList<string> args,
+        IReadOnlyDictionary<string, string> aliases,
+        params string[] flags)
     {
         var positionals = new List<string>();
         var options = new Dictionary<string, string>(StringComparer.Ordinal);
+        var setFlags = new HashSet<string>(StringComparer.Ordinal);
 
         for (var i = 0; i < args.Count; i++)
         {
             if (!args[i].StartsWith('-'))
             {
                 positionals.Add(args[i]);
+                continue;
+            }
+
+            if (flags.Contains(args[i]))
+            {
+                setFlags.Add(args[i].TrimStart('-'));
                 continue;
             }
 
@@ -49,41 +64,88 @@ internal sealed record CliArguments(IReadOnlyList<string> Positionals, IReadOnly
             options[name] = args[++i];
         }
 
-        return new CliArguments(positionals, options);
+        return new CliArguments(positionals, options, setFlags);
     }
 
     public string? Option(string name) => Options.GetValueOrDefault(name);
 
-    public void ExpectPositionals(params string[] names)
+    public bool Flag(string name) => Flags.Contains(name);
+
+    /// <summary>Checks the positional count; <paramref name="optional"/> leading arguments may be left out.</summary>
+    public void ExpectPositionals(int optional, params string[] names)
     {
-        if (Positionals.Count != names.Length)
+        if (Positionals.Count < names.Length - optional || Positionals.Count > names.Length)
         {
-            throw new UsageException($"Expected {string.Join(" ", names.Select(n => $"<{n}>"))}.");
+            var shown = names.Select((n, i) => i < optional ? $"[{n}]" : $"<{n}>");
+            throw new UsageException($"Expected {string.Join(" ", shown)}.");
         }
     }
 }
 
-internal static class GraphInput
+/// <summary>
+/// What a command works on: the resolved input (a solution, project, or saved graph.json), the
+/// <c>codeatlas.json</c> that applies to it (if any), and which projects to leave out.
+/// </summary>
+internal sealed record Session(string Input, ArchitectureConfig? Config, string? ConfigPath, ProjectFilter Filter)
 {
-    /// <summary>Loads a saved graph.json, or analyzes a solution/project. Warnings are written to stderr.</summary>
-    public static async Task<DependencyGraph> LoadAsync(string path, CancellationToken cancellationToken)
+    public const string ConfigFileName = "codeatlas.json";
+
+    public bool IsSavedGraph => Input.EndsWith(".json", StringComparison.OrdinalIgnoreCase);
+
+    public string InputDirectory => Path.GetDirectoryName(Input) ?? ".";
+
+    /// <param name="input">A solution, project, graph.json, folder, or null for the current folder.</param>
+    /// <param name="configOption">An explicit <c>--config</c> path; otherwise codeatlas.json is looked up from the input's folder.</param>
+    /// <param name="excludeOption">Comma-separated <c>--exclude</c> patterns, added to the config's.</param>
+    /// <param name="requireConfig">Fail with a hint to run <c>codeatlas init</c> when no config is found.</param>
+    public static async Task<Session> OpenAsync(
+        string? input,
+        string? configOption,
+        string? excludeOption,
+        bool requireConfig,
+        CancellationToken cancellationToken)
     {
-        if (!File.Exists(path))
+        var resolved = ResolveInput(input);
+        var inputDirectory = Path.GetDirectoryName(resolved) ?? ".";
+
+        var configPath = configOption is not null ? Path.GetFullPath(configOption) : FindConfig(inputDirectory);
+        if (configOption is not null && !File.Exists(configPath))
         {
-            throw new UsageException($"File not found: {path}", showUsage: false);
+            throw new UsageException($"Config file not found: {configOption}", showUsage: false);
         }
 
-        if (Path.GetExtension(path).Equals(".json", StringComparison.OrdinalIgnoreCase))
+        if (configPath is null && requireConfig)
         {
-            return GraphJson.Deserialize(await File.ReadAllTextAsync(path, cancellationToken));
+            throw new UsageException(
+                $"No {ConfigFileName} found in {inputDirectory} or its parent folders. " +
+                "Run `codeatlas init` to generate one for this solution, or pass --config.",
+                showUsage: false);
         }
 
-        Console.Error.WriteLine($"Loading {path}...");
-        var graph = await SolutionAnalyzer.AnalyzeAsync(path, new ConsoleProgress(), cancellationToken);
+        var config = configPath is null ? null : await LoadConfigAsync(configPath, cancellationToken);
+        var patterns = (config?.Exclude ?? []).Concat(SplitList(excludeOption));
+        return new Session(resolved, config, configPath, new ProjectFilter(patterns));
+    }
+
+    /// <summary>Loads the saved graph, or analyzes the solution. Status and warnings go to stderr.</summary>
+    public async Task<DependencyGraph> LoadGraphAsync(CancellationToken cancellationToken)
+    {
+        if (ConfigPath is not null)
+        {
+            Console.Error.WriteLine(Ansi.Dim($"Using {Path.GetRelativePath(Environment.CurrentDirectory, ConfigPath)}"));
+        }
+
+        if (IsSavedGraph)
+        {
+            return Filter.Apply(GraphJson.Deserialize(await File.ReadAllTextAsync(Input, cancellationToken)));
+        }
+
+        Console.Error.WriteLine($"Loading {Path.GetRelativePath(Environment.CurrentDirectory, Input)}...");
+        var graph = await SolutionAnalyzer.AnalyzeAsync(Input, new ConsoleProgress(), cancellationToken, Filter);
 
         if (graph.Warnings.Count > 0)
         {
-            Console.Error.WriteLine($"Warnings ({graph.Warnings.Count}); the graph may be incomplete:");
+            Console.Error.WriteLine(Ansi.Yellow($"Warnings ({graph.Warnings.Count}); the graph may be incomplete:"));
             foreach (var warning in graph.Warnings)
             {
                 Console.Error.WriteLine($"  - {warning}");
@@ -92,6 +154,64 @@ internal static class GraphInput
 
         return graph;
     }
+
+    public static async Task<ArchitectureConfig> LoadConfigAsync(string path, CancellationToken cancellationToken)
+    {
+        try
+        {
+            return ArchitectureConfig.Parse(await File.ReadAllTextAsync(path, cancellationToken));
+        }
+        catch (ArchitectureConfigException ex)
+        {
+            throw new UsageException($"Invalid config {path}: {ex.Message}", showUsage: false);
+        }
+    }
+
+    private static string ResolveInput(string? input)
+    {
+        if (input is not null && input.EndsWith(".json", StringComparison.OrdinalIgnoreCase))
+        {
+            return File.Exists(input)
+                ? Path.GetFullPath(input)
+                : throw new UsageException($"File not found: {input}", showUsage: false);
+        }
+
+        try
+        {
+            return SolutionLocator.Resolve(input);
+        }
+        catch (SolutionNotFoundException ex)
+        {
+            throw new UsageException(ex.Message, showUsage: false);
+        }
+    }
+
+    /// <summary>
+    /// Looks for codeatlas.json in <paramref name="directory"/> and its parents, the way tools find
+    /// .editorconfig, so a solution in src/ can use a config at the repository root. Stops at the repository
+    /// root (the folder with .git) so a config from an unrelated parent folder never applies.
+    /// </summary>
+    private static string? FindConfig(string directory)
+    {
+        for (var current = new DirectoryInfo(directory); current is not null; current = current.Parent)
+        {
+            var candidate = Path.Combine(current.FullName, ConfigFileName);
+            if (File.Exists(candidate))
+            {
+                return candidate;
+            }
+
+            if (Directory.Exists(Path.Combine(current.FullName, ".git")) || File.Exists(Path.Combine(current.FullName, ".git")))
+            {
+                return null;
+            }
+        }
+
+        return null;
+    }
+
+    private static IEnumerable<string> SplitList(string? value) =>
+        value?.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries) ?? [];
 
     private sealed class ConsoleProgress : IProgress<string>
     {

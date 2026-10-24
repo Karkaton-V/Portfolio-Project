@@ -14,11 +14,14 @@ public static class SolutionAnalyzer
 {
     /// <param name="path">A <c>.sln</c>, <c>.slnx</c>, or <c>.csproj</c> file.</param>
     /// <param name="progress">Receives status messages, including how long each phase took.</param>
+    /// <param name="filter">Projects to skip. Excluded projects aren't compiled at all, which also saves time.</param>
     public static async Task<DependencyGraph> AnalyzeAsync(
         string path,
         IProgress<string>? progress = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        ProjectFilter? filter = null)
     {
+        filter ??= ProjectFilter.None;
         var fullPath = Path.GetFullPath(path);
         var clock = Stopwatch.StartNew();
         using var workspace = MSBuildWorkspace.Create();
@@ -44,11 +47,14 @@ public static class SolutionAnalyzer
             builder.AddWarning(message);
         }
 
-        var projects = workspace.CurrentSolution.Projects
+        var csharpProjects = workspace.CurrentSolution.Projects
             .Where(p => p.Language == LanguageNames.CSharp)
             .OrderBy(p => p.Name, StringComparer.Ordinal)
             .ToList();
-        progress?.Report($"Loaded {projects.Count} projects in {Seconds(clock)}");
+        var projects = csharpProjects.Where(p => filter.Includes(ProjectLabel(p))).ToList();
+        var skipped = csharpProjects.Count - projects.Count;
+        progress?.Report($"Loaded {csharpProjects.Count} projects in {Seconds(clock)}" +
+            (skipped > 0 ? $"; skipping {skipped} excluded by {string.Join(", ", filter.Patterns)}" : ""));
 
         // Compile and extract every project in parallel. Projects that reference each other share Roslyn's
         // cached compilations, so this doesn't redo work. Results land in a fixed slot per project and are

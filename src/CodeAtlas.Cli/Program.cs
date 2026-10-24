@@ -12,6 +12,7 @@ try
 {
     return args switch
     {
+        ["init", .. var rest] => await InitCommand.RunAsync(rest, cancellation.Token),
         ["analyze", .. var rest] => await AnalyzeCommand.RunAsync(rest, cancellation.Token),
         ["cycles", .. var rest] => await CyclesCommand.RunAsync(rest, cancellation.Token),
         ["impact", .. var rest] => await ImpactCommand.RunAsync(rest, cancellation.Token),
@@ -43,21 +44,31 @@ static int PrintUsage(TextWriter writer, int exitCode)
         """
 
         Usage:
-          codeatlas analyze <solution> [-o <graph.json>]
-          codeatlas cycles  <input> [--level namespace|type]
-          codeatlas impact  <input> <type> [--depth <n>] [--kinds <kind,...>]
-          codeatlas check   <input> [--config <codeatlas.json>] [--sarif <file>] [--path-prefix <dir>]
-          codeatlas report  <input> [-o <report.html>] [--config <codeatlas.json>] [--title <text>]
+          codeatlas init    [input] [--force]
+          codeatlas analyze [input] [-o <graph.json>]
+          codeatlas cycles  [input] [--level namespace|type]
+          codeatlas impact  [input] <type> [--depth <n>] [--kinds <kind,...>]
+          codeatlas check   [input] [--sarif <file>] [--path-prefix <dir>]
+          codeatlas report  [input] [-o <report.html>] [--title <text>] [--theme <name>]
 
-        <solution> is a .sln, .slnx, or .csproj file. <input> is a solution or a graph.json written by
-        `analyze -o`; reusing a saved graph skips the slow solution load.
+        [input] is a folder (default: the current folder), a .sln, .slnx, or .csproj file, or a graph.json
+        written by `analyze -o`; reusing a saved graph skips the slow solution load. A folder is searched for
+        its solution, including a few levels down (e.g. src/).
+
+        Every command also takes:
+          --config <file>       codeatlas.json to use (default: found in the input's folder or a parent)
+          --exclude <globs>     Projects to leave out, comma-separated, e.g. "*Tests,Samples.*"
 
         Commands:
+          init       Generate a starter codeatlas.json, with layers guessed from project names
           analyze    Extract types and dependencies; optionally save them as JSON
           cycles     Find groups of namespaces (or types) that depend on each other in a loop
           impact     List the types that depend on <type>, directly or indirectly
-          check      Enforce the architecture rules in codeatlas.json (default: next to <input>)
+          check      Enforce the architecture rules in codeatlas.json
           report     Write a self-contained interactive HTML report (opens offline in any browser)
+
+        Report themes:
+          atlas (default), nord, solarized, contrast; each has light and dark modes, switchable in the report
 
         Exit codes:
           0 success   1 bad arguments or config   2 analysis failed   3 rule violations (errors)
