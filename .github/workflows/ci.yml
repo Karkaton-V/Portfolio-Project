@@ -48,3 +48,23 @@ jobs:
           path: |
             codeatlas.sarif
             codeatlas-report.html
+
+  # The desktop app is a Windows (WPF) program, so it's published on a Windows runner. The result is
+  # attached to the run as a download: CodeAtlas.exe plus the BuildHost folders it needs.
+  desktop:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+
+      - name: Publish CodeAtlas.exe
+        run: dotnet publish src/CodeAtlas.Desktop --configuration Release --runtime win-x64 --output artifacts/CodeAtlas
+
+      - name: Upload the desktop app
+        uses: actions/upload-artifact@v7
+        with:
+          name: CodeAtlas-desktop-win-x64
+          path: artifacts/CodeAtlas

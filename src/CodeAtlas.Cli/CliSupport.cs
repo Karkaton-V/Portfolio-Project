@@ -88,7 +88,7 @@ internal sealed record CliArguments(
 /// </summary>
 internal sealed record Session(string Input, ArchitectureConfig? Config, string? ConfigPath, ProjectFilter Filter)
 {
-    public const string ConfigFileName = "codeatlas.json";
+    public const string ConfigFileName = ConfigLocator.FileName;
 
     public bool IsSavedGraph => Input.EndsWith(".json", StringComparison.OrdinalIgnoreCase);
 
@@ -108,7 +108,7 @@ internal sealed record Session(string Input, ArchitectureConfig? Config, string?
         var resolved = ResolveInput(input);
         var inputDirectory = Path.GetDirectoryName(resolved) ?? ".";
 
-        var configPath = configOption is not null ? Path.GetFullPath(configOption) : FindConfig(inputDirectory);
+        var configPath = configOption is not null ? Path.GetFullPath(configOption) : ConfigLocator.Find(inputDirectory);
         if (configOption is not null && !File.Exists(configPath))
         {
             throw new UsageException($"Config file not found: {configOption}", showUsage: false);
@@ -169,6 +169,14 @@ internal sealed record Session(string Input, ArchitectureConfig? Config, string?
 
     private static string ResolveInput(string? input)
     {
+        // @name: a repo saved with `codeatlas repos add` or the desktop app.
+        if (input is not null && input.StartsWith('@'))
+        {
+            var saved = Repos.RepoRegistry.Load().Find(input)
+                ?? throw new UsageException($"No saved repo named '{input}'. Run `codeatlas repos` to list them.", showUsage: false);
+            input = saved.Path;
+        }
+
         if (input is not null && input.EndsWith(".json", StringComparison.OrdinalIgnoreCase))
         {
             return File.Exists(input)
@@ -184,30 +192,6 @@ internal sealed record Session(string Input, ArchitectureConfig? Config, string?
         {
             throw new UsageException(ex.Message, showUsage: false);
         }
-    }
-
-    /// <summary>
-    /// Looks for codeatlas.json in <paramref name="directory"/> and its parents, the way tools find
-    /// .editorconfig, so a solution in src/ can use a config at the repository root. Stops at the repository
-    /// root (the folder with .git) so a config from an unrelated parent folder never applies.
-    /// </summary>
-    private static string? FindConfig(string directory)
-    {
-        for (var current = new DirectoryInfo(directory); current is not null; current = current.Parent)
-        {
-            var candidate = Path.Combine(current.FullName, ConfigFileName);
-            if (File.Exists(candidate))
-            {
-                return candidate;
-            }
-
-            if (Directory.Exists(Path.Combine(current.FullName, ".git")) || File.Exists(Path.Combine(current.FullName, ".git")))
-            {
-                return null;
-            }
-        }
-
-        return null;
     }
 
     private static IEnumerable<string> SplitList(string? value) =>

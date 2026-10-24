@@ -1,0 +1,85 @@
+# Analyzes any GitHub repository on GitHub's servers and returns the HTML report as an artifact.
+# The CodeAtlas desktop app starts this when it can't analyze a repository locally (no local copy, or one
+# can't be made), then downloads the report. It can also be run by hand from the Actions tab.
+#
+# Public repositories work out of the box. To analyze private repositories other than this one, add a
+# repository secret named CODEATLAS_READ_TOKEN: a fine-grained token with read access to their contents.
+name: Analyze a repository
+run-name: "CodeAtlas: ${{ inputs.repository }} [${{ inputs.request_id }}]"
+
+on:
+  workflow_dispatch:
+    inputs:
+      repository:
+        description: Repository to analyze (owner/name)
+        required: true
+        type: string
+      request_id:
+        description: Set by CodeAtlas so it can find this run again
+        required: false
+        type: string
+        default: manual
+
+permissions:
+  contents: read
+
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      # Inputs reach scripts through environment variables, never pasted into the script text, so a crafted
+      # repository name can't inject shell commands.
+      REPOSITORY: ${{ inputs.repository }}
+    steps:
+      - name: Validate the repository name
+        run: |
+          if [[ ! "$REPOSITORY" =~ ^[A-Za-z0-9-]+/[A-Za-z0-9._-]+$ ]]; then
+            echo "::error::'$REPOSITORY' isn't an owner/name repository."
+            exit 1
+          fi
+
+      - name: Check out CodeAtlas
+        uses: actions/checkout@v7
+        with:
+          path: codeatlas
+
+      - name: Check out the repository to analyze
+        uses: actions/checkout@v7
+        with:
+          repository: ${{ inputs.repository }}
+          path: target
+          fetch-depth: 1
+          token: ${{ secrets.CODEATLAS_READ_TOKEN || github.token }}
+
+      # CodeAtlas needs .NET 10; the analyzed solution may target older SDKs, so install the current LTS ones too.
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: |
+            8.0.x
+            9.0.x
+          global-json-file: codeatlas/global.json
+
+      - name: Build CodeAtlas
+        run: dotnet build codeatlas/src/CodeAtlas.Cli --configuration Release
+
+      # Restoring runs the analyzed repository's build scripts; here that happens on a disposable machine.
+      # A failed restore isn't fatal: the analysis still runs and reports what it couldn't resolve.
+      - name: Restore NuGet packages
+        continue-on-error: true
+        run: |
+          solution=$(find target -maxdepth 4 \( -name '*.slnx' -o -name '*.sln' \) -not -path '*/bin/*' -not -path '*/obj/*' | head -n 1)
+          if [ -n "$solution" ]; then dotnet restore "$solution"; else echo "No solution file found; skipping restore."; fi
+
+      - name: Analyze
+        run: |
+          mkdir -p out
+          dotnet codeatlas/src/CodeAtlas.Cli/bin/Release/net10.0/codeatlas.dll report target \
+            --title "$REPOSITORY" -o out/report.html
+
+      - name: Upload the report
+        uses: actions/upload-artifact@v7
+        with:
+          name: codeatlas-report
+          path: out/report.html
+          retention-days: 1

@@ -221,6 +221,11 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
 .stats dt { color: var(--muted); font-size: 12.5px; order: 2; }
 .stats dd { margin: 0; font-weight: 650; font-variant-numeric: tabular-nums; font-size: 13px; }
 
+/* Inside the desktop app, which shows its own name and logo, and its own repository sidebar. */
+[data-embedded] .brand,
+[data-embedded] .divider { display: none; }
+[data-embedded] .layout { grid-template-columns: 320px 1fr; }
+
 /* ---------- Theme picker ---------- */
 
 .theme-menu { position: relative; }

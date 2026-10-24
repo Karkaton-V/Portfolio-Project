@@ -32,6 +32,9 @@
   const prefersDark = matchMedia('(prefers-color-scheme: dark)');
   const isDark = () => appearance.mode === 'dark' || (appearance.mode === 'auto' && prefersDark.matches);
 
+  // Inside the CodeAtlas desktop app (#embedded=1) the window already shows the app's name and logo.
+  if (hash.get('embedded') === '1') document.documentElement.dataset.embedded = 'true';
+
   function applyAppearance() {
     const root = document.documentElement;
     root.dataset.palette = appearance.theme;

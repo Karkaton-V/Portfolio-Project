@@ -6,13 +6,14 @@
     <PackAsTool>true</PackAsTool>
     <ToolCommandName>codeatlas</ToolCommandName>
     <PackageId>CodeAtlas.Tool</PackageId>
-    <Version>0.7.1</Version>
+    <Version>0.8.0</Version>
   </PropertyGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\CodeAtlas.Analysis\CodeAtlas.Analysis.csproj" />
     <ProjectReference Include="..\CodeAtlas.Core\CodeAtlas.Core.csproj" />
     <ProjectReference Include="..\CodeAtlas.Report\CodeAtlas.Report.csproj" />
+    <ProjectReference Include="..\CodeAtlas.Repos\CodeAtlas.Repos.csproj" />
   </ItemGroup>
 
 </Project>

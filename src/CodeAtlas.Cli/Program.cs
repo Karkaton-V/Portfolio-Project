@@ -13,6 +13,7 @@ try
     return args switch
     {
         ["init", .. var rest] => await InitCommand.RunAsync(rest, cancellation.Token),
+        ["repos", .. var rest] => await ReposCommand.RunAsync(rest, cancellation.Token),
         ["analyze", .. var rest] => await AnalyzeCommand.RunAsync(rest, cancellation.Token),
         ["cycles", .. var rest] => await CyclesCommand.RunAsync(rest, cancellation.Token),
         ["impact", .. var rest] => await ImpactCommand.RunAsync(rest, cancellation.Token),
@@ -51,9 +52,16 @@ static int PrintUsage(TextWriter writer, int exitCode)
           codeatlas check   [input] [--sarif <file>] [--path-prefix <dir>]
           codeatlas report  [input] [-o <report.html>] [--title <text>] [--theme <name>]
 
-        [input] is a folder (default: the current folder), a .sln, .slnx, or .csproj file, or a graph.json
-        written by `analyze -o`; reusing a saved graph skips the slow solution load. A folder is searched for
-        its solution, including a few levels down (e.g. src/).
+        Saved repos (shared with the CodeAtlas desktop app):
+          codeatlas repos                       List saved repos
+          codeatlas repos add <folder|owner/name> [--name <name>] [--no-restore]
+          codeatlas repos remove <name>         Forget a repo (files are left in place)
+          codeatlas repos pull <name>           Pull the latest commits of a repo added from GitHub
+          codeatlas repos github [--all]        List your GitHub repos (C# ones unless --all)
+
+        [input] is a folder (default: the current folder), a .sln, .slnx, or .csproj file, a graph.json
+        written by `analyze -o`, or @name for a saved repo. A folder is searched for its solution, including a
+        few levels down (e.g. src/); reusing a saved graph skips the slow solution load.
 
         Every command also takes:
           --config <file>       codeatlas.json to use (default: found in the input's folder or a parent)

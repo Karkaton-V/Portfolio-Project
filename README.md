@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/Karkaton-V/Portfolio-Project/actions/workflows/ci.yml/badge.svg)](https://github.com/Karkaton-V/Portfolio-Project/actions/workflows/ci.yml)
 
-A command-line tool that maps the dependencies inside a C# solution using the Roslyn compiler APIs, then
+A command-line tool and Windows desktop app that map the dependencies inside a C# solution using the Roslyn compiler APIs, then
 finds dependency cycles, answers "what could this change affect?", enforces architecture rules in CI, and
 writes an interactive HTML report you can explore in any browser.
 
@@ -54,6 +54,61 @@ dotnet tool install --global --add-source artifacts CodeAtlas.Tool
 
 Or run it from source with `dotnet run --project src/CodeAtlas.Cli -- <command>`.
 
+## Desktop app
+
+CodeAtlas also ships as a Windows desktop app that keeps a list of repositories and shows each one's report, so
+you can switch between projects without remembering paths or commands.
+
+![The CodeAtlas desktop app showing the CleanArchitecture report](docs/images/desktop-app.png)
+
+- **Add folder…** saves any folder with a C# solution. **From GitHub…** lists the repositories you own,
+  collaborate on, or can see through an organization (C# ones first), and adds the one you pick.
+- **Finds the copy you already have.** Before downloading anything, CodeAtlas looks for an existing clone in the
+  folders GitHub Desktop and Visual Studio use by default (`Documents\GitHub`, `source\repos`, and a few others),
+  matching each clone's `origin` remote. Clones found this way are marked "On this PC" in the picker and are used
+  in place. GitHub Desktop doesn't offer a public way to read its own repository list, so this search covers the
+  folders it clones into. If a repository is somewhere else, or moved, **Locate…** points CodeAtlas at it, and
+  warns if the folder is a clone of a different repository.
+- **Analyzes on GitHub when it can't here.** If a GitHub repository has no copy on this computer (or analyzing
+  it here fails, say because the .NET SDK is missing), CodeAtlas runs the analysis on GitHub's servers instead:
+  it starts the [`codeatlas-analyze`](.github/workflows/codeatlas-analyze.yml) workflow, follows its progress,
+  and downloads the report it produces. If both fail, the app shows both errors.
+- **Analyze** (F5) refreshes the report, **Pull latest** updates a downloaded copy first, and **Remove** can
+  also delete a copy CodeAtlas downloaded (never a folder you added yourself).
+
+Everything is kept in `%USERPROFILE%\.codeatlas`: the list (`repos.json`), downloaded copies (`repos\owner\name`),
+and the latest report for each repository. If the list can't be read, the app offers to set it aside and start
+fresh rather than refusing to open. Set `CODEATLAS_HOME` to keep it somewhere else.
+
+GitHub access uses your existing sign-in: the `GH_TOKEN` or `GITHUB_TOKEN` environment variable, or the
+[GitHub CLI](https://cli.github.com/) (`gh auth login`). CodeAtlas never saves the token.
+
+**About the GitHub fallback.** The workflow runs in a "runner" repository you control, by default
+`Karkaton-V/Portfolio-Project`. To use your own, fork this repository and set `{ "runner": "you/Portfolio-Project" }`
+in `.codeatlas\settings.json` (or the `CODEATLAS_RUNNER` environment variable). The run uses that repository's
+Actions minutes. It can read public repositories and the runner itself; to analyze your other private
+repositories, add a fine-grained token with read access to them as the runner's `CODEATLAS_READ_TOKEN` secret.
+Reports are kept as a workflow artifact for one day.
+
+To build the app, publish it for Windows:
+
+```bash
+dotnet publish src/CodeAtlas.Desktop -c Release -r win-x64 -o artifacts/CodeAtlas
+```
+
+This produces `CodeAtlas.exe` plus Roslyn's two `BuildHost` folders, which must stay next to it. CI publishes
+the same folder as the `CodeAtlas-desktop-win-x64` artifact. The app needs the .NET 10 runtime, and the .NET SDK
+to analyze solutions locally, plus the WebView2 runtime that comes with Windows 11.
+
+The same list is available from the command line, and any command takes `@name` in place of a path:
+
+```bash
+codeatlas repos add Karkaton-V/Portfolio-Project   # uses a clone already on this PC, or downloads one
+codeatlas repos add ../MyApp --name myapp
+codeatlas repos                                     # list them
+codeatlas report @myapp
+```
+
 ## Usage
 
 ```bash
@@ -104,9 +159,11 @@ Direct dependents
 | `impact [input] <type>` | `--depth <n>` limit the steps; `--kinds Calls,Implements` follow only some dependency kinds |
 | `check [input]` | `--sarif <file>`; `--path-prefix <dir>` |
 | `report [input]` | `-o <file>` (default `codeatlas-report.html`); `--title <text>`; `--theme atlas\|nord\|solarized\|contrast` |
+| `repos` | list saved repositories; `repos add <folder\|owner/name>` (`--name`, `--clone` to download even if a copy exists, `--no-restore`); `repos remove <name>`; `repos locate <name> <folder>`; `repos pull <name>`; `repos github` (`--all` to include non-C#) |
 | every command | `--config <file>` (default: found from the input's folder up); `--exclude <globs>` comma-separated project patterns |
 
-`[input]` is a folder (default: the current one), a solution or project, or a saved `graph.json`. `<type>` can be
+`[input]` is a folder (default: the current one), a solution or project, a saved `graph.json`, or `@name` for a
+repository saved with `codeatlas repos add`. `<type>` can be
 a full name (`Shop.Domain.Orders.Order`), a simple name (`Order`), a namespace suffix (`Orders.Order`), or a type
 ID. If the name is ambiguous, CodeAtlas lists the matches with their projects and IDs.
 
@@ -302,10 +359,13 @@ src/
   CodeAtlas.Analysis/    Roslyn extraction: SolutionAnalyzer -> GraphBuilder -> Dependency/BodyDependencyExtractor
   CodeAtlas.Report/      HTML report writer; Assets/ holds the page, styles, viewer script, and vendored Cytoscape.js
   CodeAtlas.Cli/         The `codeatlas` command
+  CodeAtlas.Repos/       Saved repositories, GitHub API client, finding local clones, git, analysis on GitHub Actions
+  CodeAtlas.Desktop/     The Windows desktop app (WPF + WebView2, MVVM)
 tests/
   CodeAtlas.Analysis.Tests/   Extraction tests that compile C# source strings in memory (no MSBuild needed)
   CodeAtlas.Core.Tests/       Algorithm and rules tests on small hand-built graphs
   CodeAtlas.Report.Tests/     Report tests: self-contained output, embedded data, escaping of hostile names
+  CodeAtlas.Repos.Tests/      Registry, clone discovery, and GitHub tests against a fake GitHub API (no network)
 samples/
   ShopSample/            A small solution with deliberate rule violations and a codeatlas.json, for demos and CI
 ```
@@ -328,6 +388,7 @@ Requires the .NET 10 SDK (pinned in `global.json`). The target framework is set 
 - [x] **v0.5** .NET 10 LTS and Roslyn 5; case study on a real-world solution
 - [x] **v0.6** Parallel analysis (~3× faster), compact report data (-70%), redesigned report with layered diagrams, colored CLI output
 - [x] **v0.7** Works from any folder, `codeatlas init` generates rules for any solution, project exclusions, config discovery, report themes
+- [x] **v0.8** Windows desktop app, saved repositories (`codeatlas repos`, `@name`), GitHub integration that reuses local clones and falls back to analyzing on GitHub Actions
 - [ ] **Later** Pull-request impact (`--since main`), analysis history across commits
 
 ## Third-party code
