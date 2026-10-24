@@ -436,6 +436,16 @@
     maxZoom: 3,
   });
 
+  // A report opened in a background tab or an embedded pane can load before its canvas has a real size,
+  // so the first fit is computed against the wrong area and the graph ends up off-screen. Re-fit whenever
+  // the canvas changes size, until the viewer moves the view themselves (then their view is left alone).
+  let viewAdjusted = false;
+  cy.on('dragpan scrollzoom pinchzoom', () => { viewAdjusted = true; });
+  new ResizeObserver(() => {
+    cy.resize();
+    if (!viewAdjusted && cy.width() > 0 && cy.height() > 0 && cy.nodes().nonempty()) fitToView(false);
+  }).observe(cy.container());
+
   // A layered architecture diagram, used for projects and namespaces: each node's row is the length of its
   // longest dependency chain (so the innermost layer sits at the bottom and composition roots at the top),
   // and each row is ordered by the average position of its neighbors (the barycenter heuristic) to reduce
@@ -503,6 +513,7 @@
     // big graphs, jump straight to the result so the opening view is always fitted.
     const animate = !firstLayout && cy.nodes().length <= 150;
     firstLayout = false;
+    viewAdjusted = false; // a new layout gets a fresh fit
     const layout = state.impactOf
       ? { name: 'concentric', concentric: n => 10 - n.data('distance'), levelWidth: () => 1, minNodeSpacing: 48 }
       : state.level !== 'type'
@@ -1029,6 +1040,7 @@
   // restarting the animation from wherever the previous one had reached.
   let zoomTarget = null;
   const zoomBy = factor => {
+    viewAdjusted = true;
     zoomTarget = Math.min(Math.max((zoomTarget ?? cy.zoom()) * factor, cy.minZoom()), cy.maxZoom());
     cy.stop();
     cy.animate(
@@ -1037,7 +1049,10 @@
   };
   document.getElementById('zoom-in').addEventListener('click', () => zoomBy(1.25));
   document.getElementById('zoom-out').addEventListener('click', () => zoomBy(0.8));
-  document.getElementById('fit').addEventListener('click', () => fitToView());
+  document.getElementById('fit').addEventListener('click', () => {
+    viewAdjusted = false;
+    fitToView();
+  });
   document.getElementById('relayout').addEventListener('click', runLayout);
 
   // ---------- theme picker ----------
