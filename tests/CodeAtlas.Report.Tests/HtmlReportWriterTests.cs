@@ -57,7 +57,7 @@ public class HtmlReportWriterTests
 
         // The title is inserted verbatim (HTML-encoded), not replaced by the page's script.
         Assert.Equal("/*{{SCRIPT}}*/", EmbeddedData(html).GetProperty("title").GetString());
-        Assert.Single(Regex.Matches(html, "CodeAtlas report viewer"));
+        Assert.Single(Regex.Matches(html, "Burndown report viewer"));
     }
 
     [Fact]

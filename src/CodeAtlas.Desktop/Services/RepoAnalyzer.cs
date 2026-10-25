@@ -12,7 +12,7 @@ namespace CodeAtlas.Desktop.Services;
 public sealed record AnalysisSummary(int Types, int Dependencies, int? Errors, int? Warnings, IReadOnlyList<string> GraphWarnings);
 
 /// <summary>
-/// Runs the same pipeline as <c>codeatlas report</c> for a saved repository: find its solution and
+/// Runs the same pipeline as <c>burndown report</c> for a saved repository: find its solution and
 /// codeatlas.json, analyze, check the rules, and write the HTML report the window displays.
 /// </summary>
 public static class RepoAnalyzer

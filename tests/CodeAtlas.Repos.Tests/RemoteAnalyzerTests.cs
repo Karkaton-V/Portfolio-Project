@@ -50,8 +50,8 @@ public sealed class RemoteAnalyzerTests : IDisposable
             {
                 // GitHub takes a moment to create the run, and other runs are listed too.
                 _runLookups++;
-                var ours = runEverAppears && _runLookups > 1 ? $",{Run("queued", null, $"CodeAtlas: x [{_requestId}]")}" : "";
-                return Json($$"""{ "workflow_runs": [ {{Run("completed", "success", "CodeAtlas: other [abc]", id: 1)}}{{ours}} ] }""");
+                var ours = runEverAppears && _runLookups > 1 ? $",{Run("queued", null, $"Burndown: x [{_requestId}]")}" : "";
+                return Json($$"""{ "workflow_runs": [ {{Run("completed", "success", "Burndown: other [abc]", id: 1)}}{{ours}} ] }""");
             }
 
             if (path == "/repos/Karkaton-V/Portfolio-Project/actions/runs/42")
@@ -62,7 +62,7 @@ public sealed class RemoteAnalyzerTests : IDisposable
 
             if (path.EndsWith("/runs/42/jobs", StringComparison.Ordinal))
             {
-                return Json("""{ "jobs": [ { "steps": [ { "name": "Build CodeAtlas", "status": "completed" }, { "name": "Analyze", "status": "in_progress" } ] } ] }""");
+                return Json("""{ "jobs": [ { "steps": [ { "name": "Build Burndown", "status": "completed" }, { "name": "Analyze", "status": "in_progress" } ] } ] }""");
             }
 
             if (path.EndsWith("/runs/42/artifacts", StringComparison.Ordinal))

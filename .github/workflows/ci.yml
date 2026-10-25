@@ -28,7 +28,7 @@ jobs:
           dotnet build samples/ShopSample/ShopSample.sln
           set +e
           dotnet run --project src/CodeAtlas.Cli --configuration Release --no-build -- \
-            check samples/ShopSample/ShopSample.sln --sarif codeatlas.sarif
+            check samples/ShopSample/ShopSample.sln --sarif burndown.sarif
           code=$?
           set -e
           if [ "$code" -ne 3 ]; then
@@ -39,18 +39,18 @@ jobs:
       - name: Generate the sample's HTML report
         run: |
           dotnet run --project src/CodeAtlas.Cli --configuration Release --no-build -- \
-            report samples/ShopSample/ShopSample.sln -o codeatlas-report.html
+            report samples/ShopSample/ShopSample.sln -o burndown-report.html
 
       - name: Upload reports
         uses: actions/upload-artifact@v7
         with:
-          name: codeatlas-reports
+          name: burndown-reports
           path: |
-            codeatlas.sarif
-            codeatlas-report.html
+            burndown.sarif
+            burndown-report.html
 
   # The desktop app is a Windows (WPF) program, so it's published on a Windows runner. The result is
-  # attached to the run as a download: CodeAtlas.exe plus the BuildHost folders it needs.
+  # attached to the run as a download: Burndown.exe plus the BuildHost folders it needs.
   desktop:
     runs-on: windows-latest
     steps:
@@ -60,11 +60,11 @@ jobs:
         with:
           global-json-file: global.json
 
-      - name: Publish CodeAtlas.exe
-        run: dotnet publish src/CodeAtlas.Desktop --configuration Release --runtime win-x64 --output artifacts/CodeAtlas
+      - name: Publish Burndown.exe
+        run: dotnet publish src/CodeAtlas.Desktop --configuration Release --runtime win-x64 --output artifacts/Burndown
 
       - name: Upload the desktop app
         uses: actions/upload-artifact@v7
         with:
-          name: CodeAtlas-desktop-win-x64
-          path: artifacts/CodeAtlas
+          name: Burndown-desktop-win-x64
+          path: artifacts/Burndown

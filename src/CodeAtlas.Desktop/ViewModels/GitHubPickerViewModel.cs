@@ -75,7 +75,7 @@ public sealed partial class GitHubPickerViewModel(RepoRegistry registry) : Obser
             var token = await Tools.FindGitHubTokenAsync(cancellationToken);
             if (token is null)
             {
-                Message = "CodeAtlas uses your GitHub CLI sign-in. Install the GitHub CLI (cli.github.com) and run " +
+                Message = "Burndown uses your GitHub CLI sign-in. Install the GitHub CLI (cli.github.com) and run " +
                     "`gh auth login`, or set a GITHUB_TOKEN environment variable, then open this window again.";
                 return;
             }

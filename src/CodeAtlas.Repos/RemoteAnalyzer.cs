@@ -4,8 +4,8 @@ using System.Text.Json;
 namespace CodeAtlas.Repos;
 
 /// <summary>
-/// Analyzes a repository on GitHub's servers: starts the CodeAtlas workflow in a "runner" repository (the
-/// CodeAtlas repository, or a fork of it), follows the run, and downloads the report it produces. Used when a
+/// Analyzes a repository on GitHub's servers: starts the Burndown workflow in a "runner" repository (the
+/// Burndown repository, or a fork of it), follows the run, and downloads the report it produces. Used when a
 /// repository isn't on this computer and can't be cloned, so nothing has to be downloaded or built locally.
 /// </summary>
 public sealed class RemoteAnalyzer(GitHubClient client, GitHubRepoRef runner)
@@ -85,7 +85,7 @@ public sealed class RemoteAnalyzer(GitHubClient client, GitHubRepoRef runner)
 
 /// <summary>
 /// User settings, in <c>settings.json</c> next to the saved repositories. Today: which repository runs the
-/// GitHub analysis workflow (CodeAtlas's own, unless you point it at a fork with <c>{ "runner": "you/CodeAtlas" }</c>
+/// GitHub analysis workflow (Burndown's own, unless you point it at a fork with <c>{ "runner": "you/Portfolio-Project" }</c>
 /// or the CODEATLAS_RUNNER environment variable).
 /// </summary>
 public sealed record CodeAtlasSettings(string Runner)

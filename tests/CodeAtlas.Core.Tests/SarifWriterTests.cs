@@ -28,7 +28,7 @@ public class SarifWriterTests
         Assert.Equal("2.1.0", root.GetProperty("version").GetString());
 
         var driver = root.GetProperty("runs")[0].GetProperty("tool").GetProperty("driver");
-        Assert.Equal("CodeAtlas", driver.GetProperty("name").GetString());
+        Assert.Equal("Burndown", driver.GetProperty("name").GetString());
         Assert.Equal("1.2.3", driver.GetProperty("version").GetString());
         Assert.Equal(
             ["domain-alone", "namespace-cycle"],

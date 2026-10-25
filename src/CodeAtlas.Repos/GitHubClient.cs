@@ -5,7 +5,7 @@ using System.Text.RegularExpressions;
 
 namespace CodeAtlas.Repos;
 
-/// <summary>A repository as the GitHub API describes it (the fields CodeAtlas uses).</summary>
+/// <summary>A repository as the GitHub API describes it (the fields Burndown uses).</summary>
 /// <param name="Language">GitHub's guess at the main language, e.g. "C#"; null for empty repositories.</param>
 public sealed record GitHubRepo(
     string FullName,
@@ -19,7 +19,7 @@ public sealed record GitHubRepo(
     public bool IsCSharp => string.Equals(Language, "C#", StringComparison.OrdinalIgnoreCase);
 }
 
-/// <summary>A GitHub request failed. The message is written for the person using CodeAtlas.</summary>
+/// <summary>A GitHub request failed. The message is written for the person using Burndown.</summary>
 public sealed class GitHubException(string message) : Exception(message);
 
 /// <summary>A GitHub Actions workflow run.</summary>
@@ -31,7 +31,7 @@ public sealed record WorkflowRun(long Id, string Status, string? Conclusion, str
 }
 
 /// <summary>
-/// A small client for the GitHub REST API: just the calls CodeAtlas needs. Takes an <see cref="HttpClient"/>
+/// A small client for the GitHub REST API: just the calls Burndown needs. Takes an <see cref="HttpClient"/>
 /// so tests can substitute the network.
 /// </summary>
 public sealed partial class GitHubClient(HttpClient http, string token)
@@ -173,7 +173,7 @@ public sealed partial class GitHubClient(HttpClient http, string token)
         using var request = new HttpRequestMessage(method ?? HttpMethod.Get, uri) { Content = content };
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
         request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/vnd.github+json"));
-        request.Headers.UserAgent.Add(new ProductInfoHeaderValue("CodeAtlas", "1.0"));
+        request.Headers.UserAgent.Add(new ProductInfoHeaderValue("Burndown", "1.0"));
         request.Headers.Add("X-GitHub-Api-Version", "2022-11-28");
 
         var response = await http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken);

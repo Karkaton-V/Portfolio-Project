@@ -6,7 +6,7 @@ namespace CodeAtlas.Cli.Commands;
 
 internal static class ReportCommand
 {
-    private const string DefaultOutput = "codeatlas-report.html";
+    private const string DefaultOutput = "burndown-report.html";
 
     public static async Task<int> RunAsync(IReadOnlyList<string> args, CancellationToken cancellationToken)
     {

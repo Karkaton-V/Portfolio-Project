@@ -30,7 +30,7 @@ public class GitHubClientTests
 
     private const string PageOne = """
         [
-          { "full_name": "Karkaton-V/Portfolio-Project", "description": "CodeAtlas", "language": "C#", "private": true,
+          { "full_name": "Karkaton-V/Portfolio-Project", "description": "Burndown", "language": "C#", "private": true,
             "fork": false, "archived": false, "pushed_at": "2026-10-24T05:00:00Z" },
           { "full_name": "Gas-Capstone/UpKeep", "description": null, "language": "TypeScript", "private": false,
             "fork": false, "archived": false, "pushed_at": "2026-10-20T05:00:00Z" }

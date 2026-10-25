@@ -7,7 +7,7 @@
     <Application.Resources>
         <BooleanToVisibilityConverter x:Key="BoolToVisibility" />
 
-        <!-- The CodeAtlas mark: three connected nodes, as in the report header. -->
+        <!-- The Burndown mark: three connected nodes, as in the report header. -->
         <Geometry x:Key="LogoGeometry">M6,7 L12,17 M18,7 L12,17 M6,7 L18,7 M8.6,7 A2.6,2.6 0 1 1 3.4,7 A2.6,2.6 0 1 1 8.6,7 M20.6,7 A2.6,2.6 0 1 1 15.4,7 A2.6,2.6 0 1 1 20.6,7 M14.6,17 A2.6,2.6 0 1 1 9.4,17 A2.6,2.6 0 1 1 14.6,17</Geometry>
 
         <Style x:Key="SecondaryText" TargetType="TextBlock">

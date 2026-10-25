@@ -7,7 +7,7 @@ namespace CodeAtlas.Repos;
 /// <param name="Name">Short unique name, used as <c>@name</c> on the command line.</param>
 /// <param name="Path">The folder that contains the solution.</param>
 /// <param name="GitHub">The GitHub repository it was cloned from (owner/name), if any.</param>
-/// <param name="Managed">True when CodeAtlas cloned it into its own folder (and may delete it on removal).</param>
+/// <param name="Managed">True when Burndown cloned it into its own folder (and may delete it on removal).</param>
 /// <param name="AnalyzedRemotely">True when the last analysis ran on GitHub's servers rather than this computer.</param>
 public sealed record RegisteredRepo(
     string Name,
@@ -24,7 +24,7 @@ public sealed class RepoRegistryException(string message) : Exception(message);
 
 /// <summary>
 /// The saved repositories, shared by the command line and the desktop app. Stored as JSON in
-/// <c>~/.codeatlas/repos.json</c> (or <c>$CODEATLAS_HOME</c>), next to the folders CodeAtlas clones
+/// <c>~/.codeatlas/repos.json</c> (or <c>$CODEATLAS_HOME</c>), next to the folders Burndown clones
 /// repositories into and writes reports to.
 /// </summary>
 public sealed partial class RepoRegistry

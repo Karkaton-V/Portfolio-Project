@@ -7,14 +7,14 @@ namespace CodeAtlas.Repos;
 public sealed class ToolException(string message) : Exception(message);
 
 /// <summary>
-/// Runs the command-line tools CodeAtlas relies on. Arguments go through <see cref="ProcessStartInfo.ArgumentList"/>,
+/// Runs the command-line tools Burndown relies on. Arguments go through <see cref="ProcessStartInfo.ArgumentList"/>,
 /// never a single command string, so a repository name can't be interpreted as extra arguments.
 /// </summary>
 public static class Tools
 {
     /// <summary>
     /// The user's GitHub token: <c>GH_TOKEN</c> or <c>GITHUB_TOKEN</c> if set, otherwise the GitHub CLI's
-    /// (<c>gh auth token</c>). CodeAtlas only holds it in memory for the request; it is never written anywhere.
+    /// (<c>gh auth token</c>). Burndown only holds it in memory for the request; it is never written anywhere.
     /// </summary>
     public static async Task<string?> FindGitHubTokenAsync(CancellationToken cancellationToken = default)
     {
@@ -37,7 +37,7 @@ public static class Tools
         }
     }
 
-    /// <summary>A shallow clone (latest commit only): fast, and all CodeAtlas needs.</summary>
+    /// <summary>A shallow clone (latest commit only): fast, and all Burndown needs.</summary>
     public static Task CloneAsync(GitHubRepoRef repo, string destination, CancellationToken cancellationToken = default)
     {
         Directory.CreateDirectory(Path.GetDirectoryName(destination) ?? destination);
@@ -45,7 +45,7 @@ public static class Tools
     }
 
     /// <summary>
-    /// Deletes a clone CodeAtlas made. Git marks its object files read-only, which makes a plain recursive
+    /// Deletes a clone Burndown made. Git marks its object files read-only, which makes a plain recursive
     /// delete fail on Windows, so clear that first. Failures are ignored: the files can be removed by hand.
     /// </summary>
     public static void DeleteClone(string folder)

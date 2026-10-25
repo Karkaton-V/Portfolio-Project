@@ -36,9 +36,9 @@ public partial class App : Application
         catch (RepoRegistryException ex)
         {
             var answer = MessageBox.Show(
-                $"CodeAtlas couldn't read its list of saved repositories.\n\n{ex.Message}\n\n" +
+                $"Burndown couldn't read its list of saved repositories.\n\n{ex.Message}\n\n" +
                 "Choose OK to keep a copy of that file and start with an empty list, or Cancel to quit and fix it yourself.",
-                "CodeAtlas", MessageBoxButton.OKCancel, MessageBoxImage.Warning);
+                "Burndown", MessageBoxButton.OKCancel, MessageBoxImage.Warning);
             if (answer != MessageBoxResult.OK)
             {
                 return null;
@@ -53,7 +53,7 @@ public partial class App : Application
     {
         // Errors raised while a window is being created arrive wrapped ("The invocation of the constructor…");
         // the innermost exception is the one that explains what went wrong.
-        MessageBox.Show(e.Exception.GetBaseException().Message, "CodeAtlas ran into a problem", MessageBoxButton.OK, MessageBoxImage.Error);
+        MessageBox.Show(e.Exception.GetBaseException().Message, "Burndown ran into a problem", MessageBoxButton.OK, MessageBoxImage.Error);
         e.Handled = true;
     }
 }

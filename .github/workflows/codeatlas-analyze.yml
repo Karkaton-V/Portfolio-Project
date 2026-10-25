@@ -1,11 +1,11 @@
 # Analyzes any GitHub repository on GitHub's servers and returns the HTML report as an artifact.
-# The CodeAtlas desktop app starts this when it can't analyze a repository locally (no local copy, or one
+# The Burndown desktop app starts this when it can't analyze a repository locally (no local copy, or one
 # can't be made), then downloads the report. It can also be run by hand from the Actions tab.
 #
 # Public repositories work out of the box. To analyze private repositories other than this one, add a
 # repository secret named CODEATLAS_READ_TOKEN: a fine-grained token with read access to their contents.
 name: Analyze a repository
-run-name: "CodeAtlas: ${{ inputs.repository }} [${{ inputs.request_id }}]"
+run-name: "Burndown: ${{ inputs.repository }} [${{ inputs.request_id }}]"
 
 on:
   workflow_dispatch:
@@ -15,7 +15,7 @@ on:
         required: true
         type: string
       request_id:
-        description: Set by CodeAtlas so it can find this run again
+        description: Set by Burndown so it can find this run again
         required: false
         type: string
         default: manual
@@ -39,10 +39,10 @@ jobs:
             exit 1
           fi
 
-      - name: Check out CodeAtlas
+      - name: Check out Burndown
         uses: actions/checkout@v7
         with:
-          path: codeatlas
+          path: burndown
 
       - name: Check out the repository to analyze
         uses: actions/checkout@v7
@@ -52,16 +52,16 @@ jobs:
           fetch-depth: 1
           token: ${{ secrets.CODEATLAS_READ_TOKEN || github.token }}
 
-      # CodeAtlas needs .NET 10; the analyzed solution may target older SDKs, so install the current LTS ones too.
+      # Burndown needs .NET 10; the analyzed solution may target older SDKs, so install the current LTS ones too.
       - uses: actions/setup-dotnet@v6
         with:
           dotnet-version: |
             8.0.x
             9.0.x
-          global-json-file: codeatlas/global.json
+          global-json-file: burndown/global.json
 
-      - name: Build CodeAtlas
-        run: dotnet build codeatlas/src/CodeAtlas.Cli --configuration Release
+      - name: Build Burndown
+        run: dotnet build burndown/src/CodeAtlas.Cli --configuration Release
 
       # Restoring runs the analyzed repository's build scripts; here that happens on a disposable machine.
       # A failed restore isn't fatal: the analysis still runs and reports what it couldn't resolve.
@@ -74,7 +74,7 @@ jobs:
       - name: Analyze
         run: |
           mkdir -p out
-          dotnet codeatlas/src/CodeAtlas.Cli/bin/Release/net10.0/codeatlas.dll report target \
+          dotnet burndown/src/CodeAtlas.Cli/bin/Release/net10.0/burndown.dll report target \
             --title "$REPOSITORY" -o out/report.html
 
       - name: Upload the report

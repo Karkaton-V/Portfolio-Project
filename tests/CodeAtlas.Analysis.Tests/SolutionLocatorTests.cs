@@ -3,7 +3,7 @@ namespace CodeAtlas.Analysis.Tests;
 /// <summary>Each test builds a small folder tree in a fresh temp directory and deletes it afterwards.</summary>
 public sealed class SolutionLocatorTests : IDisposable
 {
-    private readonly string _root = Directory.CreateTempSubdirectory("codeatlas-locator-").FullName;
+    private readonly string _root = Directory.CreateTempSubdirectory("burndown-locator-").FullName;
 
     public void Dispose() => Directory.Delete(_root, recursive: true);
 

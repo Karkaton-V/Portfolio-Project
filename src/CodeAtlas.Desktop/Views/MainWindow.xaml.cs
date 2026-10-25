@@ -27,7 +27,7 @@ public partial class MainWindow : Window
         // Program Files, so use the user's local app data. This must be set before the viewer starts.
         Viewer.CreationProperties = new CoreWebView2CreationProperties
         {
-            UserDataFolder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "CodeAtlas", "WebView2"),
+            UserDataFolder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Burndown", "WebView2"),
         };
         Viewer.CoreWebView2InitializationCompleted += OnViewerInitialized;
 
@@ -58,9 +58,9 @@ public partial class MainWindow : Window
         {
             MessageBox.Show(this,
                 "The report viewer needs the Microsoft Edge WebView2 Runtime, which comes with Windows 11. " +
-                "Install it from https://developer.microsoft.com/microsoft-edge/webview2/ and restart CodeAtlas.\n\n" +
+                "Install it from https://developer.microsoft.com/microsoft-edge/webview2/ and restart Burndown.\n\n" +
                 e.InitializationException?.Message,
-                "CodeAtlas", MessageBoxButton.OK, MessageBoxImage.Warning);
+                "Burndown", MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
         }
 
@@ -129,7 +129,7 @@ public partial class MainWindow : Window
         if (repo.Repo.Managed)
         {
             var answer = MessageBox.Show(this,
-                $"Remove {repo.Name} from CodeAtlas?\n\nCodeAtlas downloaded this repository to {repo.Repo.Path}. " +
+                $"Remove {repo.Name} from Burndown?\n\nBurndown downloaded this repository to {repo.Repo.Path}. " +
                 "Choose Yes to delete that copy too, or No to keep the files.",
                 "Remove repository", MessageBoxButton.YesNoCancel, MessageBoxImage.Question, MessageBoxResult.Cancel);
             if (answer != MessageBoxResult.Cancel)
@@ -138,7 +138,7 @@ public partial class MainWindow : Window
             }
         }
         else if (MessageBox.Show(this,
-                     $"Remove {repo.Name} from CodeAtlas? Your files at {repo.Repo.Path} aren't touched.",
+                     $"Remove {repo.Name} from Burndown? Your files at {repo.Repo.Path} aren't touched.",
                      "Remove repository", MessageBoxButton.OKCancel, MessageBoxImage.Question) == MessageBoxResult.OK)
         {
             _viewModel.Remove(repo, deleteClone: false);

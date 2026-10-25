@@ -2,10 +2,10 @@
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <AssemblyName>codeatlas</AssemblyName>
+    <AssemblyName>burndown</AssemblyName>
     <PackAsTool>true</PackAsTool>
-    <ToolCommandName>codeatlas</ToolCommandName>
-    <PackageId>CodeAtlas.Tool</PackageId>
+    <ToolCommandName>burndown</ToolCommandName>
+    <PackageId>Burndown.Tool</PackageId>
     <Version>0.8.0</Version>
   </PropertyGroup>
 

@@ -3,7 +3,7 @@ using CodeAtlas.Core.Rules;
 namespace CodeAtlas.Cli.Commands;
 
 /// <summary>
-/// <c>codeatlas init</c>: generates a starter codeatlas.json for any solution, with layers guessed from project
+/// <c>burndown init</c>: generates a starter codeatlas.json for any solution, with layers guessed from project
 /// names, and reports how the solution measures up against it right away.
 /// </summary>
 internal static class InitCommand
@@ -52,7 +52,7 @@ internal static class InitCommand
             (result.ErrorCount == 0 && result.WarningCount == 0
                 ? Ansi.Green("everything passes.")
                 : $"{Ansi.Red($"{result.ErrorCount} error(s)")}, {Ansi.Yellow($"{result.WarningCount} warning(s)")}."));
-        Console.WriteLine("Next: review the layers, then run `codeatlas check` for details or `codeatlas report` to explore.");
+        Console.WriteLine("Next: review the layers, then run `burndown check` for details or `burndown report` to explore.");
 
         return ExitCodes.Success;
     }

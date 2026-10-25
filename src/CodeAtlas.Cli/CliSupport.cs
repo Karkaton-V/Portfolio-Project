@@ -97,7 +97,7 @@ internal sealed record Session(string Input, ArchitectureConfig? Config, string?
     /// <param name="input">A solution, project, graph.json, folder, or null for the current folder.</param>
     /// <param name="configOption">An explicit <c>--config</c> path; otherwise codeatlas.json is looked up from the input's folder.</param>
     /// <param name="excludeOption">Comma-separated <c>--exclude</c> patterns, added to the config's.</param>
-    /// <param name="requireConfig">Fail with a hint to run <c>codeatlas init</c> when no config is found.</param>
+    /// <param name="requireConfig">Fail with a hint to run <c>burndown init</c> when no config is found.</param>
     public static async Task<Session> OpenAsync(
         string? input,
         string? configOption,
@@ -118,7 +118,7 @@ internal sealed record Session(string Input, ArchitectureConfig? Config, string?
         {
             throw new UsageException(
                 $"No {ConfigFileName} found in {inputDirectory} or its parent folders. " +
-                "Run `codeatlas init` to generate one for this solution, or pass --config.",
+                "Run `burndown init` to generate one for this solution, or pass --config.",
                 showUsage: false);
         }
 
@@ -169,11 +169,11 @@ internal sealed record Session(string Input, ArchitectureConfig? Config, string?
 
     private static string ResolveInput(string? input)
     {
-        // @name: a repo saved with `codeatlas repos add` or the desktop app.
+        // @name: a repo saved with `burndown repos add` or the desktop app.
         if (input is not null && input.StartsWith('@'))
         {
             var saved = Repos.RepoRegistry.Load().Find(input)
-                ?? throw new UsageException($"No saved repo named '{input}'. Run `codeatlas repos` to list them.", showUsage: false);
+                ?? throw new UsageException($"No saved repo named '{input}'. Run `burndown repos` to list them.", showUsage: false);
             input = saved.Path;
         }
 

@@ -90,7 +90,7 @@ public sealed partial class MainViewModel : ObservableObject
             ReportUri = null;
             PlaceholderTitle = Repos.Count == 0 ? "Add a repository to get started" : "Pick a repository";
             PlaceholderText = Repos.Count == 0
-                ? "Add a folder that contains a C# solution, or pick one of your GitHub repositories. CodeAtlas maps how its types depend on each other."
+                ? "Add a folder that contains a C# solution, or pick one of your GitHub repositories. Burndown maps how its types depend on each other."
                 : "Choose a repository on the left to see its dependency map.";
             return;
         }
@@ -254,7 +254,7 @@ public sealed partial class MainViewModel : ObservableObject
 
     private bool CanOpen() => SelectedRepo is not null;
 
-    /// <summary>Removes a repository from the list. A clone CodeAtlas made can be deleted too.</summary>
+    /// <summary>Removes a repository from the list. A clone Burndown made can be deleted too.</summary>
     public void Remove(RepoViewModel repo, bool deleteClone)
     {
         _registry.Remove(repo.Name);
@@ -262,7 +262,7 @@ public sealed partial class MainViewModel : ObservableObject
         Repos.Remove(repo);
         TryDelete(repo.ReportPath);
 
-        // Only ever delete inside CodeAtlas's own clones folder, never a folder the user added themselves.
+        // Only ever delete inside Burndown's own clones folder, never a folder the user added themselves.
         if (deleteClone && repo.Repo.Managed && IsInside(repo.Repo.Path, _registry.ClonesDirectory))
         {
             Tools.DeleteClone(repo.Repo.Path);
@@ -315,7 +315,7 @@ public sealed partial class MainViewModel : ObservableObject
             }
             else if (repo.GitHub is null)
             {
-                throw new DirectoryNotFoundException($"{repo.Path} doesn't exist anymore. Use Locate to point CodeAtlas at where it is now.");
+                throw new DirectoryNotFoundException($"{repo.Path} doesn't exist anymore. Use Locate to point Burndown at where it is now.");
             }
 
             // 3. No usable local copy of a GitHub repository: analyze it on GitHub's servers.

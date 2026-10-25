@@ -1,6 +1,6 @@
 namespace CodeAtlas.Repos.Tests;
 
-/// <summary>Each test gets its own temporary CodeAtlas home, deleted afterwards.</summary>
+/// <summary>Each test gets its own temporary Burndown home, deleted afterwards.</summary>
 public sealed class RepoRegistryTests : IDisposable
 {
     private readonly string _home = Directory.CreateTempSubdirectory("codeatlas-home-").FullName;

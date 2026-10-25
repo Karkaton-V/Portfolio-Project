@@ -4,7 +4,7 @@
     <OutputType>WinExe</OutputType>
     <TargetFramework>net10.0-windows</TargetFramework>
     <UseWPF>true</UseWPF>
-    <AssemblyName>CodeAtlas</AssemblyName>
+    <AssemblyName>Burndown</AssemblyName>
     <RootNamespace>CodeAtlas.Desktop</RootNamespace>
     <Version>0.8.0</Version>
     <!-- Lets the Linux CI runner compile this project; the app itself runs on Windows. -->
@@ -18,7 +18,7 @@
     <Resource Include="Assets\codeatlas.ico" />
   </ItemGroup>
 
-  <!-- `dotnet publish -r win-x64` produces one CodeAtlas.exe (plus Roslyn's BuildHost folders, which MSBuild
+  <!-- `dotnet publish -r win-x64` produces one Burndown.exe (plus Roslyn's BuildHost folders, which MSBuild
        loads by path). It runs on the installed .NET 10 runtime; loading solutions needs the .NET SDK anyway. -->
   <PropertyGroup Condition="'$(RuntimeIdentifier)' != ''">
     <PublishSingleFile>true</PublishSingleFile>
@@ -30,7 +30,7 @@
   </PropertyGroup>
 
   <!-- Roslyn starts the BuildHost as its own process from those folders, so its files must stay real files on
-       disk; without this, single-file publishing would pack its .dlls into CodeAtlas.exe and loading would fail. -->
+       disk; without this, single-file publishing would pack its .dlls into Burndown.exe and loading would fail. -->
   <Target Name="KeepBuildHostOutOfSingleFile" AfterTargets="ComputeResolvedFilesToPublishList">
     <ItemGroup>
       <ResolvedFileToPublish Update="@(ResolvedFileToPublish)"

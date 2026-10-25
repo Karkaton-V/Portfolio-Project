@@ -4,8 +4,8 @@ using CodeAtlas.Repos;
 namespace CodeAtlas.Cli.Commands;
 
 /// <summary>
-/// <c>codeatlas repos</c>: the saved repositories shared with the desktop app. A saved repository can be used
-/// as the input of any command with <c>@name</c>, e.g. <c>codeatlas check @shop</c>.
+/// <c>burndown repos</c>: the saved repositories shared with the desktop app. A saved repository can be used
+/// as the input of any command with <c>@name</c>, e.g. <c>burndown check @shop</c>.
 /// </summary>
 internal static class ReposCommand
 {
@@ -28,7 +28,7 @@ internal static class ReposCommand
     {
         if (registry.Repos.Count == 0)
         {
-            Console.WriteLine("No saved repos yet. Add one with `codeatlas repos add <folder or owner/name>`.");
+            Console.WriteLine("No saved repos yet. Add one with `burndown repos add <folder or owner/name>`.");
             return ExitCodes.Success;
         }
 
@@ -40,7 +40,7 @@ internal static class ReposCommand
         }
 
         Console.WriteLine();
-        Console.WriteLine(Ansi.Dim($"Use one with any command, e.g. `codeatlas report @{registry.Repos[0].Name}`. Saved in {registry.Home}."));
+        Console.WriteLine(Ansi.Dim($"Use one with any command, e.g. `burndown report @{registry.Repos[0].Name}`. Saved in {registry.Home}."));
         return ExitCodes.Success;
     }
 
@@ -130,7 +130,7 @@ internal static class ReposCommand
         var name = arguments.Positionals[0];
         if (!registry.Remove(name))
         {
-            throw new UsageException($"No saved repo named '{name}'. Run `codeatlas repos` to list them.", showUsage: false);
+            throw new UsageException($"No saved repo named '{name}'. Run `burndown repos` to list them.", showUsage: false);
         }
 
         registry.Save();
@@ -227,7 +227,7 @@ internal static class ReposCommand
         }
 
         Console.WriteLine();
-        Console.WriteLine(Ansi.Dim("Add one with `codeatlas repos add owner/name`."));
+        Console.WriteLine(Ansi.Dim("Add one with `burndown repos add owner/name`."));
         return ExitCodes.Success;
     }
 

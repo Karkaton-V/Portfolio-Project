@@ -13,7 +13,7 @@ public static class SarifWriter
 
     /// <param name="pathPrefix">
     /// Prepended to every source path. SARIF consumers resolve paths against the repository root,
-    /// while CodeAtlas paths are relative to the analyzed solution.
+    /// while Burndown paths are relative to the analyzed solution.
     /// </param>
     public static string Write(CheckResult result, string toolVersion, string? pathPrefix = null)
     {
@@ -31,7 +31,7 @@ public static class SarifWriter
                 {
                     ["driver"] = new JsonObject
                     {
-                        ["name"] = "CodeAtlas",
+                        ["name"] = "Burndown",
                         ["version"] = toolVersion,
                         ["rules"] = new JsonArray(result.Rules.Select(RuleNode).ToArray<JsonNode?>()),
                     },

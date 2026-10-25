@@ -3,14 +3,14 @@ using System.Text.RegularExpressions;
 namespace CodeAtlas.Repos;
 
 /// <summary>
-/// Finds clones of GitHub repositories that already exist on this computer, so CodeAtlas can use them
+/// Finds clones of GitHub repositories that already exist on this computer, so Burndown can use them
 /// instead of downloading another copy. A folder counts when it's a Git repository whose <c>origin</c>
 /// remote points at github.com.
 /// </summary>
 /// <remarks>
 /// GitHub Desktop has no public way for other apps to read its repository list, but it clones into
 /// <c>Documents\GitHub</c> by default, so searching that folder finds what it manages. Visual Studio's
-/// default (<c>source\repos</c>) is searched too, and any folder the user points CodeAtlas at with Locate.
+/// default (<c>source\repos</c>) is searched too, and any folder the user points Burndown at with Locate.
 /// </remarks>
 public static partial class LocalRepoFinder
 {

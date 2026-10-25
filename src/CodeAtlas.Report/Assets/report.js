@@ -1,4 +1,4 @@
-// CodeAtlas report viewer. The analysis already ran in C#; this script draws and filters the results.
+// Burndown report viewer. The analysis already ran in C#; this script draws and filters the results.
 // All names are inserted with textContent (never innerHTML), so source code can't inject markup.
 (() => {
   'use strict';
@@ -32,7 +32,7 @@
   const prefersDark = matchMedia('(prefers-color-scheme: dark)');
   const isDark = () => appearance.mode === 'dark' || (appearance.mode === 'auto' && prefersDark.matches);
 
-  // Inside the CodeAtlas desktop app (#embedded=1) the window already shows the app's name and logo.
+  // Inside the Burndown desktop app (#embedded=1) the window already shows the app's name and logo.
   if (hash.get('embedded') === '1') document.documentElement.dataset.embedded = 'true';
 
   function applyAppearance() {
@@ -745,7 +745,7 @@
     const namespaces = new Set(data.nodes.map(n => n.namespace)).size;
     setChildren(detailsPanel, 
       el('h2', { text: 'Overview' }),
-      el('p', { class: 'subtle', text: `Generated ${data.generatedAt}${data.toolVersion ? ` by CodeAtlas ${data.toolVersion}` : ''}.` }),
+      el('p', { class: 'subtle', text: `Generated ${data.generatedAt}${data.toolVersion ? ` by Burndown ${data.toolVersion}` : ''}.` }),
       el('div', { class: 'metrics' },
         metric(data.nodes.length, 'types'), metric(namespaces, 'namespaces'), metric(data.edges.length, 'dependencies')),
       el('h3', { text: 'How to use' }),

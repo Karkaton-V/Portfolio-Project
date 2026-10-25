@@ -483,11 +483,12 @@ $RECYCLE.BIN/
 # Vim temporary swap files
 *.swp
 
-# Output of `codeatlas analyze -o` runs on the samples
+# Output of `burndown analyze -o` runs on the samples
 samples/**/graph.json
 
 # The template's macOS "*.app" rule matches this folder on case-insensitive file systems
 !samples/ShopSample/Shop.App/
 
-# Reports written by `codeatlas report`
+# Reports written by `burndown report`
+burndown-report.html
 codeatlas-report.html

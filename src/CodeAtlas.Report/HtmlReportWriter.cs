@@ -16,7 +16,7 @@ public sealed record ReportOptions
 
     public DateTimeOffset GeneratedAt { get; init; } = DateTimeOffset.UtcNow;
 
-    /// <summary>Results of <c>codeatlas check</c> to show in the report, if a config was available.</summary>
+    /// <summary>Results of <c>burndown check</c> to show in the report, if a config was available.</summary>
     public CheckResult? Check { get; init; }
 
     /// <summary>The theme the report opens with (one of <see cref="ReportThemes.Names"/>). A viewer's own pick, saved in their browser, wins.</summary>

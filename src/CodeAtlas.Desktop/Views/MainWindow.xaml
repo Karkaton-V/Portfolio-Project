@@ -7,7 +7,7 @@
         xmlns:vm="clr-namespace:CodeAtlas.Desktop.ViewModels"
         mc:Ignorable="d"
         d:DataContext="{d:DesignInstance Type=vm:MainViewModel}"
-        Title="CodeAtlas"
+        Title="Burndown"
         Width="1440" Height="900" MinWidth="960" MinHeight="600"
         WindowStartupLocation="CenterScreen"
         Icon="/Assets/codeatlas.ico">
@@ -34,7 +34,7 @@
                         <Path Data="{StaticResource LogoGeometry}" Width="22" Height="22" Stretch="Uniform"
                               Stroke="{DynamicResource AccentTextFillColorPrimaryBrush}" StrokeThickness="1.8"
                               StrokeLineJoin="Round" StrokeStartLineCap="Round" StrokeEndLineCap="Round" />
-                        <TextBlock Text="CodeAtlas" FontSize="18" FontWeight="SemiBold" Margin="10,0,0,0" VerticalAlignment="Center" />
+                        <TextBlock Text="Burndown" FontSize="18" FontWeight="SemiBold" Margin="10,0,0,0" VerticalAlignment="Center" />
                     </StackPanel>
 
                     <TextBlock Text="REPOSITORIES" Style="{StaticResource SectionLabel}" Margin="2,22,0,8" />
@@ -71,7 +71,7 @@
                             <ColumnDefinition Width="*" />
                         </Grid.ColumnDefinitions>
                         <Button Grid.Column="0" Content="Locate…" HorizontalAlignment="Stretch" Click="Locate_Click"
-                                IsEnabled="{Binding CanLocate}" ToolTip="Tell CodeAtlas where this repository is on your computer" />
+                                IsEnabled="{Binding CanLocate}" ToolTip="Tell Burndown where this repository is on your computer" />
                         <Button Grid.Column="2" Content="Open folder" HorizontalAlignment="Stretch" Command="{Binding OpenFolderCommand}"
                                 ToolTip="Open the repository's folder" />
                     </Grid>

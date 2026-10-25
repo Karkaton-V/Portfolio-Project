@@ -45,19 +45,19 @@ static int PrintUsage(TextWriter writer, int exitCode)
         """
 
         Usage:
-          codeatlas init    [input] [--force]
-          codeatlas analyze [input] [-o <graph.json>]
-          codeatlas cycles  [input] [--level namespace|type]
-          codeatlas impact  [input] <type> [--depth <n>] [--kinds <kind,...>]
-          codeatlas check   [input] [--sarif <file>] [--path-prefix <dir>]
-          codeatlas report  [input] [-o <report.html>] [--title <text>] [--theme <name>]
+          burndown init    [input] [--force]
+          burndown analyze [input] [-o <graph.json>]
+          burndown cycles  [input] [--level namespace|type]
+          burndown impact  [input] <type> [--depth <n>] [--kinds <kind,...>]
+          burndown check   [input] [--sarif <file>] [--path-prefix <dir>]
+          burndown report  [input] [-o <report.html>] [--title <text>] [--theme <name>]
 
-        Saved repos (shared with the CodeAtlas desktop app):
-          codeatlas repos                       List saved repos
-          codeatlas repos add <folder|owner/name> [--name <name>] [--no-restore]
-          codeatlas repos remove <name>         Forget a repo (files are left in place)
-          codeatlas repos pull <name>           Pull the latest commits of a repo added from GitHub
-          codeatlas repos github [--all]        List your GitHub repos (C# ones unless --all)
+        Saved repos (shared with the Burndown desktop app):
+          burndown repos                       List saved repos
+          burndown repos add <folder|owner/name> [--name <name>] [--no-restore]
+          burndown repos remove <name>         Forget a repo (files are left in place)
+          burndown repos pull <name>           Pull the latest commits of a repo added from GitHub
+          burndown repos github [--all]        List your GitHub repos (C# ones unless --all)
 
         [input] is a folder (default: the current folder), a .sln, .slnx, or .csproj file, a graph.json
         written by `analyze -o`, or @name for a saved repo. A folder is searched for its solution, including a

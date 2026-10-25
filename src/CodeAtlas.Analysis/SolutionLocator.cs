@@ -5,7 +5,7 @@ public sealed class SolutionNotFoundException(string message) : Exception(messag
 
 /// <summary>
 /// Turns what a person typed (nothing, a folder, or a file) into the solution or project file to analyze,
-/// so <c>codeatlas analyze</c> works from the root of any repository.
+/// so <c>burndown analyze</c> works from the root of any repository.
 /// </summary>
 public static class SolutionLocator
 {

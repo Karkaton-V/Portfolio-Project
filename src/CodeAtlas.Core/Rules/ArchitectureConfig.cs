@@ -78,7 +78,7 @@ public sealed record ArchitectureConfig
     /// <summary>Projects to leave out of every command, as <see cref="ProjectFilter"/> globs (e.g. <c>*Tests</c>).</summary>
     public IReadOnlyList<string> Exclude { get; init; } = [];
 
-    /// <summary>Defaults for <c>codeatlas report</c>.</summary>
+    /// <summary>Defaults for <c>burndown report</c>.</summary>
     public ReportSettings Report { get; init; } = new();
 
     public static ArchitectureConfig Parse(string json)
