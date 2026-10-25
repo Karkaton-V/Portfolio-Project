@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <AssemblyName>burndown</AssemblyName>
+    <PackAsTool>true</PackAsTool>
+    <ToolCommandName>burndown</ToolCommandName>
+    <PackageId>Burndown.Tool</PackageId>
+    <Version>0.8.0</Version>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Burndown.Analysis\Burndown.Analysis.csproj" />
+    <ProjectReference Include="..\Burndown.Core\Burndown.Core.csproj" />
+    <ProjectReference Include="..\Burndown.Report\Burndown.Report.csproj" />
+    <ProjectReference Include="..\Burndown.Repos\Burndown.Repos.csproj" />
+  </ItemGroup>
+
+</Project>

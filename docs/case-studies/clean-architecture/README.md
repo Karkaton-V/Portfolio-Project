@@ -10,13 +10,13 @@ test Burndown on code I didn't write, and to see whether the template follows it
 | Solution | `CleanArchitecture.slnx`: 13 projects, including .NET Aspire hosts and four test projects |
 | Graph | 144 types and 388 dependencies across 12 projects with types (50 namespaces) |
 | Analysis time | About 14 s on a laptop: ~10.5 s MSBuild loading the projects, ~3.6 s compiling and extracting in parallel (the first run after a reboot takes longer while MSBuild warms up) |
-| Rules | [`codeatlas.json`](codeatlas.json) in this folder |
+| Rules | [`burndown.json`](burndown.json) in this folder |
 
 ```bash
 dotnet restore CleanArchitecture.slnx
 burndown analyze CleanArchitecture.slnx -o graph.json
-burndown check graph.json --config codeatlas.json
-burndown report graph.json --config codeatlas.json -o report.html
+burndown check graph.json --config burndown.json
+burndown report graph.json --config burndown.json -o report.html
 ```
 
 The report draws the projects as a layered diagram computed from the code alone: functional tests, then Web,

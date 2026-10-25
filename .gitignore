@@ -491,4 +491,3 @@ samples/**/graph.json
 
 # Reports written by `burndown report`
 burndown-report.html
-codeatlas-report.html

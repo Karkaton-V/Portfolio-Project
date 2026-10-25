@@ -9,8 +9,9 @@ writes an interactive HTML report you can explore in any browser.
 The name is a nod to burndown charts: those track how much work is left, and Burndown shows how much tangle is
 left (cycles, rule violations, and the types everything leans on) so you can burn it down.
 
-> Burndown was called CodeAtlas until v0.8. Its config file (`codeatlas.json`), data folder (`~/.codeatlas`), and
-> environment variables (`CODEATLAS_*`) keep their original names, so existing setups keep working.
+> Burndown was called CodeAtlas until v0.8. Setups from then keep working: `codeatlas.json` files are still read,
+> `~/.codeatlas` is moved to `~/.burndown` the first time Burndown runs, and `CODEATLAS_*` environment variables
+> still apply when the matching `BURNDOWN_*` one isn't set.
 
 Burndown loads a `.sln`, `.slnx`, or `.csproj`, finds every type the solution declares, and records how those
 types depend on each other, from inheritance and constructor injection down to individual method calls.
@@ -25,7 +26,7 @@ types depend on each other, from inheritance and constructor injection down to i
 Burndown works on any C# solution. From the root of a repository:
 
 ```bash
-burndown init      # finds the solution, guesses its layers from project names, writes codeatlas.json
+burndown init      # finds the solution, guesses its layers from project names, writes burndown.json
 burndown check     # enforces those rules
 burndown report    # writes burndown-report.html
 ```
@@ -39,9 +40,9 @@ Application/Services, Infrastructure/Persistence/Data, Web/Api/UI, and test proj
 layering rules for the layers it finds. It then checks the solution against them, so the first run shows where
 things stand. Projects whose names fit no convention are listed in the file for you to place. On
 jasontaylordev/CleanArchitecture, `init` produced the same four rules as the hand-written
-[case study](docs/case-studies/clean-architecture/codeatlas.json), and all of them pass.
+[case study](docs/case-studies/clean-architecture/burndown.json), and all of them pass.
 
-`codeatlas.json` is found in the input's folder or any parent up to the repository root, the way
+`burndown.json` is found in the input's folder or any parent up to the repository root, the way
 `.editorconfig` is. Use `exclude` (or `--exclude`) to leave projects out, such as tests or samples:
 
 ```bash
@@ -51,14 +52,14 @@ burndown report --exclude "*Tests,Samples.*"
 To run Burndown as a command, install the .NET tool from a local build:
 
 ```bash
-dotnet pack src/CodeAtlas.Cli -o artifacts
+dotnet pack src/Burndown.Cli -o artifacts
 ```
 
 ```bash
 dotnet tool install --global --add-source artifacts Burndown.Tool
 ```
 
-Or run it from source with `dotnet run --project src/CodeAtlas.Cli -- <command>`.
+Or run it from source with `dotnet run --project src/Burndown.Cli -- <command>`.
 
 ## Desktop app
 
@@ -77,29 +78,29 @@ you can switch between projects without remembering paths or commands.
   warns if the folder is a clone of a different repository.
 - **Analyzes on GitHub when it can't here.** If a GitHub repository has no copy on this computer (or analyzing
   it here fails, say because the .NET SDK is missing), Burndown runs the analysis on GitHub's servers instead:
-  it starts the [`codeatlas-analyze`](.github/workflows/codeatlas-analyze.yml) workflow, follows its progress,
+  it starts the [`burndown-analyze`](.github/workflows/burndown-analyze.yml) workflow, follows its progress,
   and downloads the report it produces. If both fail, the app shows both errors.
 - **Analyze** (F5) refreshes the report, **Pull latest** updates a downloaded copy first, and **Remove** can
   also delete a copy Burndown downloaded (never a folder you added yourself).
 
-Everything is kept in `%USERPROFILE%\.codeatlas`: the list (`repos.json`), downloaded copies (`repos\owner\name`),
+Everything is kept in `%USERPROFILE%\.burndown`: the list (`repos.json`), downloaded copies (`repos\owner\name`),
 and the latest report for each repository. If the list can't be read, the app offers to set it aside and start
-fresh rather than refusing to open. Set `CODEATLAS_HOME` to keep it somewhere else.
+fresh rather than refusing to open. Set `BURNDOWN_HOME` to keep it somewhere else.
 
 GitHub access uses your existing sign-in: the `GH_TOKEN` or `GITHUB_TOKEN` environment variable, or the
 [GitHub CLI](https://cli.github.com/) (`gh auth login`). Burndown never saves the token.
 
 **About the GitHub fallback.** The workflow runs in a "runner" repository you control, by default
 `Karkaton-V/Portfolio-Project`. To use your own, fork this repository and set `{ "runner": "you/Portfolio-Project" }`
-in `.codeatlas\settings.json` (or the `CODEATLAS_RUNNER` environment variable). The run uses that repository's
+in `.burndown\settings.json` (or the `BURNDOWN_RUNNER` environment variable). The run uses that repository's
 Actions minutes. It can read public repositories and the runner itself; to analyze your other private
-repositories, add a fine-grained token with read access to them as the runner's `CODEATLAS_READ_TOKEN` secret.
+repositories, add a fine-grained token with read access to them as the runner's `BURNDOWN_READ_TOKEN` secret.
 Reports are kept as a workflow artifact for one day.
 
 To build the app, publish it for Windows:
 
 ```bash
-dotnet publish src/CodeAtlas.Desktop -c Release -r win-x64 -o artifacts/Burndown
+dotnet publish src/Burndown.Desktop -c Release -r win-x64 -o artifacts/Burndown
 ```
 
 This produces `Burndown.exe` plus Roslyn's two `BuildHost` folders, which must stay next to it. CI publishes
@@ -119,12 +120,12 @@ burndown report @myapp
 
 ```bash
 # Analyze once and save the graph; the other commands can reuse it without reloading the solution
-dotnet run --project src/CodeAtlas.Cli -- analyze samples/ShopSample/ShopSample.sln -o graph.json
+dotnet run --project src/Burndown.Cli -- analyze samples/ShopSample/ShopSample.sln -o graph.json
 
-dotnet run --project src/CodeAtlas.Cli -- cycles graph.json
-dotnet run --project src/CodeAtlas.Cli -- impact graph.json IOrderRepository
-dotnet run --project src/CodeAtlas.Cli -- check samples/ShopSample/ShopSample.sln --sarif results.sarif
-dotnet run --project src/CodeAtlas.Cli -- report samples/ShopSample/ShopSample.sln -o report.html
+dotnet run --project src/Burndown.Cli -- cycles graph.json
+dotnet run --project src/Burndown.Cli -- impact graph.json IOrderRepository
+dotnet run --project src/Burndown.Cli -- check samples/ShopSample/ShopSample.sln --sarif results.sarif
+dotnet run --project src/Burndown.Cli -- report samples/ShopSample/ShopSample.sln -o report.html
 ```
 
 `samples/ShopSample` is a small three-project solution with deliberate design problems, so the commands have
@@ -159,7 +160,7 @@ Direct dependents
 
 | Command | Options |
 | --- | --- |
-| `init [input]` | `--force` replace an existing codeatlas.json |
+| `init [input]` | `--force` replace an existing burndown.json |
 | `analyze [input]` | `-o <file>` save the graph as JSON |
 | `cycles [input]` | `--level namespace` (default) or `--level type` |
 | `impact [input] <type>` | `--depth <n>` limit the steps; `--kinds Calls,Implements` follow only some dependency kinds |
@@ -177,7 +178,7 @@ Exit codes: `0` success, `1` bad arguments or config, `2` analysis failed, `3` a
 
 ## Architecture rules
 
-`burndown check` enforces rules written in a `codeatlas.json` file, so a layering mistake fails the build
+`burndown check` enforces rules written in a `burndown.json` file, so a layering mistake fails the build
 instead of being found in code review months later:
 
 ```jsonc
@@ -270,7 +271,7 @@ all inlined, so it opens offline, with no server, and can be attached to a CI ru
   Shape shows the kind of type; dashed edges are inheritance or interface implementation.
 - **Hover** a node to preview its connections; **click** to pin the selection. Press `/` to search.
 - **Themes**: four color themes (Atlas, Nord, Solarized, High contrast), each with light and dark variants, plus
-  an Auto/Light/Dark switch. The report opens in the theme set by `--theme` or `codeatlas.json`. A viewer's own
+  an Auto/Light/Dark switch. The report opens in the theme set by `--theme` or `burndown.json`. A viewer's own
   pick from the Theme menu is remembered in their browser, and a link like `report.html#theme=nord&mode=dark`
   opens a specific look. Every theme's project palette passes the same colorblind-safety checks against its own
   background in both modes.
@@ -279,7 +280,7 @@ all inlined, so it opens offline, with no server, and can be attached to a CI ru
 - **Details**: click any type for its source locations, coupling (used by, uses, instability), and what it depends
   on and what depends on it, with the kinds of each dependency.
 - **Impact**: "Show impact" redraws the graph as rings around the type: direct dependents, then 2 steps away, and so on.
-- **Health**: rule results from `codeatlas.json` (when present), namespace cycles, and the most connected types.
+- **Health**: rule results from `burndown.json` (when present), namespace cycles, and the most connected types.
 - **Filters**: hide noisy dependency kinds (like `References`) or whole projects; search finds any type by name.
 
 The analysis (cycles, coupling, rule results) runs in C#. The page's script only draws and filters. Every name is
@@ -360,20 +361,20 @@ correctly stops at `OrderService` instead of reaching the controller. Reflection
 
 ```
 src/
-  CodeAtlas.Core/        Graph model, JSON, graph algorithms (cycles, impact, coupling), and architecture
+  Burndown.Core/        Graph model, JSON, graph algorithms (cycles, impact, coupling), and architecture
                          rules + SARIF; no Roslyn dependency
-  CodeAtlas.Analysis/    Roslyn extraction: SolutionAnalyzer -> GraphBuilder -> Dependency/BodyDependencyExtractor
-  CodeAtlas.Report/      HTML report writer; Assets/ holds the page, styles, viewer script, and vendored Cytoscape.js
-  CodeAtlas.Cli/         The `burndown` command
-  CodeAtlas.Repos/       Saved repositories, GitHub API client, finding local clones, git, analysis on GitHub Actions
-  CodeAtlas.Desktop/     The Windows desktop app (WPF + WebView2, MVVM)
+  Burndown.Analysis/    Roslyn extraction: SolutionAnalyzer -> GraphBuilder -> Dependency/BodyDependencyExtractor
+  Burndown.Report/      HTML report writer; Assets/ holds the page, styles, viewer script, and vendored Cytoscape.js
+  Burndown.Cli/         The `burndown` command
+  Burndown.Repos/       Saved repositories, GitHub API client, finding local clones, git, analysis on GitHub Actions
+  Burndown.Desktop/     The Windows desktop app (WPF + WebView2, MVVM)
 tests/
-  CodeAtlas.Analysis.Tests/   Extraction tests that compile C# source strings in memory (no MSBuild needed)
-  CodeAtlas.Core.Tests/       Algorithm and rules tests on small hand-built graphs
-  CodeAtlas.Report.Tests/     Report tests: self-contained output, embedded data, escaping of hostile names
-  CodeAtlas.Repos.Tests/      Registry, clone discovery, and GitHub tests against a fake GitHub API (no network)
+  Burndown.Analysis.Tests/   Extraction tests that compile C# source strings in memory (no MSBuild needed)
+  Burndown.Core.Tests/       Algorithm and rules tests on small hand-built graphs
+  Burndown.Report.Tests/     Report tests: self-contained output, embedded data, escaping of hostile names
+  Burndown.Repos.Tests/      Registry, clone discovery, and GitHub tests against a fake GitHub API (no network)
 samples/
-  ShopSample/            A small solution with deliberate rule violations and a codeatlas.json, for demos and CI
+  ShopSample/            A small solution with deliberate rule violations and a burndown.json, for demos and CI
 ```
 
 ## Development
@@ -400,4 +401,4 @@ Requires the .NET 10 SDK (pinned in `global.json`). The target framework is set 
 ## Third-party code
 
 The HTML report inlines [Cytoscape.js](https://js.cytoscape.org/) 3.34.3 (MIT License, Copyright (c) 2016-2026
-The Cytoscape Consortium); see `src/CodeAtlas.Report/Assets/cytoscape.LICENSE`.
+The Cytoscape Consortium); see `src/Burndown.Report/Assets/cytoscape.LICENSE`.

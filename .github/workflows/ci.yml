@@ -16,10 +16,10 @@ jobs:
           global-json-file: global.json
 
       - name: Build
-        run: dotnet build CodeAtlas.sln --configuration Release
+        run: dotnet build Burndown.sln --configuration Release
 
       - name: Test
-        run: dotnet test CodeAtlas.sln --configuration Release --no-build
+        run: dotnet test Burndown.sln --configuration Release --no-build
 
       # End-to-end check: the sample solution contains deliberate violations, so `check` must
       # find them and exit with code 3. Any other exit code means something regressed.
@@ -27,7 +27,7 @@ jobs:
         run: |
           dotnet build samples/ShopSample/ShopSample.sln
           set +e
-          dotnet run --project src/CodeAtlas.Cli --configuration Release --no-build -- \
+          dotnet run --project src/Burndown.Cli --configuration Release --no-build -- \
             check samples/ShopSample/ShopSample.sln --sarif burndown.sarif
           code=$?
           set -e
@@ -38,7 +38,7 @@ jobs:
 
       - name: Generate the sample's HTML report
         run: |
-          dotnet run --project src/CodeAtlas.Cli --configuration Release --no-build -- \
+          dotnet run --project src/Burndown.Cli --configuration Release --no-build -- \
             report samples/ShopSample/ShopSample.sln -o burndown-report.html
 
       - name: Upload reports
@@ -61,7 +61,7 @@ jobs:
           global-json-file: global.json
 
       - name: Publish Burndown.exe
-        run: dotnet publish src/CodeAtlas.Desktop --configuration Release --runtime win-x64 --output artifacts/Burndown
+        run: dotnet publish src/Burndown.Desktop --configuration Release --runtime win-x64 --output artifacts/Burndown
 
       - name: Upload the desktop app
         uses: actions/upload-artifact@v7
