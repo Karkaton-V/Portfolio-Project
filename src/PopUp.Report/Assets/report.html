@@ -19,7 +19,11 @@
       <span>PopUp</span>
     </div>
     <span class="divider" aria-hidden="true"></span>
-    <h1 id="title"></h1>
+    <div class="crumb">
+      <!-- "icon owner /" for GitHub, "icon parent folder /" for a folder; filled in by the script when known. -->
+      <span class="source" id="source" hidden></span>
+      <h1 id="title"></h1>
+    </div>
     <dl class="stats" id="stats"></dl>
     <div class="theme-menu">
       <button type="button" class="theme-button" id="theme-button" aria-haspopup="true" aria-expanded="false" aria-controls="theme-popover">

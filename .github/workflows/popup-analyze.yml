@@ -74,8 +74,8 @@ jobs:
       - name: Analyze
         run: |
           mkdir -p out
-          dotnet popup/src/PopUp.Cli/bin/Release/net10.0/popup.dll report target \
-            --title "$REPOSITORY" -o out/report.html
+          # Run on the checked-out folder, the report reads "owner / name" from its origin remote.
+          dotnet popup/src/PopUp.Cli/bin/Release/net10.0/popup.dll report target -o out/report.html
 
       - name: Upload the report
         uses: actions/upload-artifact@v7

@@ -2,6 +2,10 @@ using System.Text.RegularExpressions;
 
 namespace PopUp.Repos;
 
+/// <summary>Where some code lives: "owner / name" on GitHub, or "parent folder / folder" on this computer.</summary>
+/// <param name="GitHub">The GitHub repository, when the code is a clone of one.</param>
+public sealed record CodeLocation(string Owner, string Name, GitHubRepoRef? GitHub);
+
 /// <summary>
 /// Finds clones of GitHub repositories that already exist on this computer, so PopUp can use them
 /// instead of downloading another copy. A folder counts when it's a Git repository whose <c>origin</c>
@@ -92,6 +96,37 @@ public static partial class LocalRepoFinder
                 Search(child, levelsLeft - 1);
             }
         }
+    }
+
+    /// <summary>
+    /// Describes where the code in <paramref name="folder"/> comes from: the GitHub repository its Git
+    /// repository was cloned from, or otherwise the folder itself and the folder that contains it.
+    /// </summary>
+    public static CodeLocation Describe(string folder)
+    {
+        var full = System.IO.Path.TrimEndingDirectorySeparator(System.IO.Path.GetFullPath(folder));
+        var root = FindRoot(full) ?? full;
+        if (ReadOrigin(root) is { } origin)
+        {
+            return new CodeLocation(origin.Owner, origin.Name, origin);
+        }
+
+        return new CodeLocation(System.IO.Path.GetFileName(System.IO.Path.GetDirectoryName(root)) ?? "", System.IO.Path.GetFileName(root), null);
+    }
+
+    /// <summary>The folder of the Git repository that contains <paramref name="folder"/>, or null if it isn't in one.</summary>
+    public static string? FindRoot(string folder)
+    {
+        for (var current = new DirectoryInfo(folder); current is not null; current = current.Parent)
+        {
+            var git = System.IO.Path.Combine(current.FullName, ".git");
+            if (Directory.Exists(git) || File.Exists(git))
+            {
+                return current.FullName;
+            }
+        }
+
+        return null;
     }
 
     /// <summary>The GitHub repository a local clone's <c>origin</c> remote points at, or null.</summary>

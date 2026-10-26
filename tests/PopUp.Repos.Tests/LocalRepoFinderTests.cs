@@ -89,6 +89,30 @@ public sealed class LocalRepoFinderTests : IDisposable
     }
 
     [Fact]
+    public void Describes_a_clone_by_its_github_owner_and_name_even_from_a_subfolder()
+    {
+        var clone = Clone("GitHub/Portfolio Project", "https://github.com/Karkaton-V/Portfolio-Project.git");
+        Directory.CreateDirectory(Path.Combine(clone, "samples", "ShopSample"));
+
+        var location = LocalRepoFinder.Describe(Path.Combine(clone, "samples", "ShopSample"));
+
+        Assert.Equal(("Karkaton-V", "Portfolio-Project"), (location.Owner, location.Name));
+        Assert.Equal("https://github.com/Karkaton-V/Portfolio-Project", location.GitHub?.WebUrl);
+    }
+
+    [Fact]
+    public void Describes_a_plain_folder_by_its_parent_and_its_own_name()
+    {
+        var folder = Path.Combine(_root, "popup-samples", "CleanArchitecture");
+        Directory.CreateDirectory(folder);
+
+        var location = LocalRepoFinder.Describe(folder + Path.DirectorySeparatorChar);
+
+        Assert.Equal(("popup-samples", "CleanArchitecture"), (location.Owner, location.Name));
+        Assert.Null(location.GitHub);
+    }
+
+    [Fact]
     public void Skips_folders_that_dont_exist()
     {
         Assert.Empty(LocalRepoFinder.Find([Path.Combine(_root, "missing")]));

@@ -8,9 +8,23 @@ using PopUp.Core.Rules;
 
 namespace PopUp.Report;
 
+/// <summary>Where the analyzed code lives, shown before the title as "owner / title" or "parent folder / title".</summary>
+/// <param name="Owner">The GitHub owner, or the name of the folder that contains the project's folder.</param>
+/// <param name="Link">The repository's page on GitHub, if it's a GitHub repository.</param>
+public sealed record ReportSource(ReportSourceKind Kind, string Owner, string? Link = null);
+
+public enum ReportSourceKind
+{
+    Folder,
+    GitHub,
+}
+
 public sealed record ReportOptions
 {
     public required string Title { get; init; }
+
+    /// <summary>Where the code comes from; shown as a breadcrumb before the title when set.</summary>
+    public ReportSource? Source { get; init; }
 
     public string ToolVersion { get; init; } = "";
 
@@ -73,6 +87,7 @@ public static partial class HtmlReportWriter
         var data = new
         {
             options.Title,
+            options.Source,
             options.ToolVersion,
             GeneratedAt = options.GeneratedAt.ToString("u"),
             Theme = options.Theme.ToLowerInvariant(),

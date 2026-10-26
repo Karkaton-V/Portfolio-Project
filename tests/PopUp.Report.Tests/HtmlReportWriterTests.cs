@@ -105,6 +105,23 @@ public class HtmlReportWriterTests
     }
 
     [Fact]
+    public void Embeds_where_the_code_comes_from_only_when_known()
+    {
+        var html = HtmlReportWriter.Write(Graph, new ReportOptions
+        {
+            Title = "FlowerDefense",
+            Source = new ReportSource(ReportSourceKind.GitHub, "Karkaton-V", "https://github.com/Karkaton-V/FlowerDefense"),
+        });
+
+        var source = EmbeddedData(html).GetProperty("source");
+        Assert.Equal("GitHub", source.GetProperty("kind").GetString());
+        Assert.Equal("Karkaton-V", source.GetProperty("owner").GetString());
+        Assert.Equal("https://github.com/Karkaton-V/FlowerDefense", source.GetProperty("link").GetString());
+
+        Assert.False(EmbeddedData(Write(Graph)).TryGetProperty("source", out _));
+    }
+
+    [Fact]
     public void Includes_rule_results_when_given()
     {
         var config = ArchitectureConfig.Parse("""

@@ -1,6 +1,7 @@
 using PopUp.Core;
 using PopUp.Core.Rules;
 using PopUp.Report;
+using PopUp.Repos;
 
 namespace PopUp.Cli.Commands;
 
@@ -32,9 +33,26 @@ internal static class ReportCommand
         var graph = await session.LoadGraphAsync(cancellationToken);
         var settings = session.Config?.Report ?? new ReportSettings();
 
+        // The header reads "owner / title" for a clone of a GitHub repository, "parent folder / title" otherwise.
+        // A report made from a saved graph.json has no folder to describe.
+        var input = arguments.Positionals.FirstOrDefault() ?? ".";
+        var fromFolder = Directory.Exists(input);
+        var location = session.Input.EndsWith(".json", StringComparison.OrdinalIgnoreCase)
+            ? null
+            : LocalRepoFinder.Describe(fromFolder ? input : session.InputDirectory);
+
         var html = HtmlReportWriter.Write(graph, new ReportOptions
         {
-            Title = arguments.Option("title") ?? settings.Title ?? Path.GetFileNameWithoutExtension(session.Input),
+            // Run on a folder, the title is the folder (or repository) name, like the desktop app; run on a
+            // solution or project file, it's that file's name.
+            Title = arguments.Option("title") ?? settings.Title
+                ?? (fromFolder && location is not null ? location.Name : Path.GetFileNameWithoutExtension(session.Input)),
+            Source = location switch
+            {
+                null => null,
+                { GitHub: { } gitHub } => new ReportSource(ReportSourceKind.GitHub, gitHub.Owner, gitHub.WebUrl),
+                _ => new ReportSource(ReportSourceKind.Folder, location.Owner),
+            },
             Theme = (arguments.Option("theme") ?? settings.Theme ?? ReportThemes.Default).ToLowerInvariant(),
             ToolVersion = CheckCommand.ToolVersion(),
             Check = session.Config is null ? null : ArchitectureChecker.Check(graph, session.Config),

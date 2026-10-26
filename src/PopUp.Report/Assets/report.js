@@ -1142,9 +1142,37 @@
     if (!themePopover.hidden) renderThemePicker();
   });
 
+  // ---------- where the code comes from ----------
+
+  // Fixed icon markup (never data): a folder, or connected nodes for a GitHub repository.
+  const SOURCE_ICONS = {
+    Folder: '<path d="M3 7.5A1.5 1.5 0 0 1 4.5 6h4.3l2 2.2h8.7A1.5 1.5 0 0 1 21 9.7v8.8a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 18.5z" />',
+    GitHub: '<path d="M6 7l6 10M18 7l-6 10M6 7h12" /><circle cx="6" cy="7" r="2.6" /><circle cx="18" cy="7" r="2.6" /><circle cx="12" cy="17" r="2.6" />',
+  };
+
+  // Shows "icon owner /" (GitHub) or "icon parent folder /" before the title.
+  function showSource(source) {
+    const icon = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    icon.setAttribute('viewBox', '0 0 24 24');
+    icon.setAttribute('class', 'source-icon');
+    icon.setAttribute('aria-hidden', 'true');
+    icon.innerHTML = SOURCE_ICONS[source.kind] ?? SOURCE_ICONS.Folder;
+
+    const isLink = typeof source.link === 'string' && source.link.startsWith('https://');
+    const owner = isLink
+      ? el('a', { href: source.link, target: '_blank', rel: 'noopener', text: source.owner })
+      : el('span', { text: source.owner });
+
+    const container = document.getElementById('source');
+    container.title = source.kind === 'GitHub' ? 'A GitHub repository' : 'A folder on this computer';
+    container.replaceChildren(icon, owner, el('span', { class: 'crumb-sep', 'aria-hidden': 'true', text: '/' }));
+    container.hidden = false;
+  }
+
   // ---------- start ----------
 
   document.getElementById('title').textContent = data.title;
+  if (data.source) showSource(data.source);
   const stats = [[data.nodes.length, 'types'], [data.edges.length, 'dependencies'], [projectCounts.size, 'projects']];
   document.getElementById('stats').replaceChildren(...stats.map(([value, label]) =>
     el('div', {}, el('dt', { text: label }), el('dd', { text: String(value) }))));

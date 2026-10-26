@@ -11,8 +11,8 @@ public sealed class RepoViewModel(RegisteredRepo repo, string reportsDirectory) 
 
     public string Name => Repo.Name;
 
-    /// <summary>"owner/name" for GitHub repositories, otherwise the folder.</summary>
-    public string Detail => Repo.GitHub ?? Repo.Path;
+    /// <summary>"owner/name" for GitHub repositories, otherwise the folder (shortened; the tooltip has it in full).</summary>
+    public string Detail => Repo.GitHub ?? Format.ShortPath(Repo.Path);
 
     public bool IsGitHub => Repo.GitHub is not null;
 
@@ -38,6 +38,19 @@ public sealed class RepoViewModel(RegisteredRepo repo, string reportsDirectory) 
 
 internal static class Format
 {
+    /// <summary>
+    /// A folder path short enough for the sidebar: with more than two folders, only the first and last are kept,
+    /// so <c>C:\Users\me\code\Shop</c> becomes <c>C:/Users/.../Shop</c>.
+    /// </summary>
+    public static string ShortPath(string path)
+    {
+        var root = Path.GetPathRoot(path) ?? "";
+        var folders = path[root.Length..].Split(['\\', '/'], StringSplitOptions.RemoveEmptyEntries);
+        var drive = root.TrimEnd('\\', '/').Replace('\\', '/');
+        string[] shown = folders.Length > 2 ? [folders[0], "...", folders[^1]] : folders;
+        return string.Join('/', shown.Prepend(drive));
+    }
+
     public static string Relative(DateTimeOffset at)
     {
         var elapsed = DateTimeOffset.Now - at;

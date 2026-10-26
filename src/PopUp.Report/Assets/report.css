@@ -197,6 +197,16 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
 
 .divider { width: 1px; height: 20px; background: var(--border-strong); }
 
+.crumb { display: flex; align-items: center; gap: 8px; min-width: 0; }
+
+.source { display: flex; align-items: center; gap: 8px; flex: none; color: var(--muted); font-size: 15px; white-space: nowrap; }
+.source[hidden] { display: none; }
+.source a { color: inherit; text-decoration: none; }
+.source a:hover { color: var(--text); text-decoration: underline; }
+.source-icon { width: 18px; height: 18px; flex: none; color: var(--accent); stroke-width: 1.8; }
+.source-icon circle { fill: var(--accent-soft); }
+.crumb-sep { color: var(--faint); }
+
 .topbar h1 {
   margin: 0;
   font-size: 15px;

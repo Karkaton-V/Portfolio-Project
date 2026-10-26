@@ -257,6 +257,8 @@ finds the sample's deliberate violations (exit code 3).
 `popup report` writes one self-contained HTML file. The page, its script, Cytoscape.js, and the graph data are
 all inlined, so it opens offline, with no server, and can be attached to a CI run or emailed.
 
+- **Where it came from**: the header puts the GitHub owner (linked to the repository) before the title when the
+  code is a clone of a GitHub repository, or the parent folder otherwise, each with its own icon.
 - **Projects → namespaces → types.** Drawing hundreds of types at once is unreadable, so the report starts at the
   project level (in layered solutions, projects are the layers) and you double-click to drill in. Edges are
   weighted by how many dependencies they carry, and namespace cycles are drawn in red. Add `#level=namespace` or

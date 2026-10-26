@@ -34,9 +34,19 @@ public static class RepoAnalyzer
         var graph = await SolutionAnalyzer.AnalyzeAsync(solution, progress, cancellationToken, new ProjectFilter(config?.Exclude ?? []));
         var check = config is null ? null : ArchitectureChecker.Check(graph, config);
 
+        // The header matches the sidebar: "owner / name" for a repository linked to GitHub, otherwise
+        // "parent folder / folder" (even if that folder happens to be a clone of something).
+        var folder = Path.TrimEndingDirectorySeparator(Path.GetFullPath(repo.Path));
+        var location = GitHubRepoRef.TryParse(repo.GitHub, out var linked)
+            ? new CodeLocation(linked.Owner, linked.Name, linked)
+            : new CodeLocation(Path.GetFileName(Path.GetDirectoryName(folder)) ?? "", Path.GetFileName(folder), null);
+
         var html = HtmlReportWriter.Write(graph, new ReportOptions
         {
-            Title = config?.Report.Title ?? repo.GitHub ?? repo.Name,
+            Title = config?.Report.Title ?? location.Name,
+            Source = location.GitHub is { } gitHub
+                ? new ReportSource(ReportSourceKind.GitHub, gitHub.Owner, gitHub.WebUrl)
+                : new ReportSource(ReportSourceKind.Folder, location.Owner),
             Theme = config?.Report.Theme?.ToLowerInvariant() ?? ReportThemes.Default,
             ToolVersion = Version,
             Check = check,
