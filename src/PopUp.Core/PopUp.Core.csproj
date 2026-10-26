@@ -1,0 +1,7 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="PopUp.Core.Tests" />
+  </ItemGroup>
+
+</Project>

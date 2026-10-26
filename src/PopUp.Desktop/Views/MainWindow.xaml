@@ -1,0 +1,147 @@
+<Window x:Class="PopUp.Desktop.Views.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:wv2="clr-namespace:Microsoft.Web.WebView2.Wpf;assembly=Microsoft.Web.WebView2.Wpf"
+        xmlns:vm="clr-namespace:PopUp.Desktop.ViewModels"
+        mc:Ignorable="d"
+        d:DataContext="{d:DesignInstance Type=vm:MainViewModel}"
+        Title="PopUp"
+        Width="1440" Height="900" MinWidth="960" MinHeight="600"
+        WindowStartupLocation="CenterScreen"
+        Icon="/Assets/popup.ico">
+
+    <Window.InputBindings>
+        <KeyBinding Key="F5" Command="{Binding AnalyzeCommand}" />
+        <KeyBinding Key="Escape" Command="{Binding CancelCommand}" />
+    </Window.InputBindings>
+
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="300" />
+            <ColumnDefinition Width="*" />
+        </Grid.ColumnDefinitions>
+
+        <!-- Sidebar: saved repositories -->
+        <Border Grid.Column="0"
+                Background="{DynamicResource LayerFillColorDefaultBrush}"
+                BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}"
+                BorderThickness="0,0,1,0">
+            <DockPanel>
+                <StackPanel DockPanel.Dock="Top" Margin="18,18,18,10">
+                    <StackPanel Orientation="Horizontal">
+                        <Path Data="{StaticResource LogoGeometry}" Width="22" Height="22" Stretch="Uniform"
+                              Stroke="{DynamicResource AccentTextFillColorPrimaryBrush}" StrokeThickness="1.8"
+                              StrokeLineJoin="Round" StrokeStartLineCap="Round" StrokeEndLineCap="Round" />
+                        <TextBlock Text="PopUp" FontSize="18" FontWeight="SemiBold" Margin="10,0,0,0" VerticalAlignment="Center" />
+                    </StackPanel>
+
+                    <TextBlock Text="REPOSITORIES" Style="{StaticResource SectionLabel}" Margin="2,22,0,8" />
+                    <Grid IsEnabled="{Binding IsIdle}">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="8" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <Button Grid.Column="0" Content="Add folder…" HorizontalAlignment="Stretch" Click="AddFolder_Click"
+                                ToolTip="Add a folder that contains a C# solution" />
+                        <Button Grid.Column="2" Content="From GitHub…" HorizontalAlignment="Stretch" Click="AddFromGitHub_Click"
+                                ToolTip="Pick one of your GitHub repositories" />
+                    </Grid>
+                </StackPanel>
+
+                <!-- Actions for the selected repository -->
+                <StackPanel DockPanel.Dock="Bottom" Margin="18,10,18,18">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="8" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <Button Grid.Column="0" Content="Analyze" Style="{DynamicResource AccentButtonStyle}"
+                                HorizontalAlignment="Stretch" Command="{Binding AnalyzeCommand}" ToolTip="Analyze again (F5)" />
+                        <Button Grid.Column="2" Content="Pull latest" HorizontalAlignment="Stretch" Command="{Binding SyncCommand}"
+                                ToolTip="Pull the latest commits from GitHub, then analyze" />
+                    </Grid>
+                    <Grid Margin="0,8,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="8" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <Button Grid.Column="0" Content="Locate…" HorizontalAlignment="Stretch" Click="Locate_Click"
+                                IsEnabled="{Binding CanLocate}" ToolTip="Tell PopUp where this repository is on your computer" />
+                        <Button Grid.Column="2" Content="Open folder" HorizontalAlignment="Stretch" Command="{Binding OpenFolderCommand}"
+                                ToolTip="Open the repository's folder" />
+                    </Grid>
+                    <Grid Margin="0,8,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="8" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <Button Grid.Column="0" Content="Open in browser" HorizontalAlignment="Stretch" Command="{Binding OpenInBrowserCommand}"
+                                ToolTip="Open the report in your web browser" />
+                        <Button Grid.Column="2" Content="Remove" HorizontalAlignment="Stretch" Click="Remove_Click"
+                                IsEnabled="{Binding IsIdle}" ToolTip="Remove from the list" />
+                    </Grid>
+                    <TextBlock Text="{Binding Status}" Style="{StaticResource SecondaryText}" Margin="2,12,0,0" TextWrapping="Wrap" />
+                </StackPanel>
+
+                <Grid Margin="10,0">
+                    <ListBox ItemsSource="{Binding Repos}" SelectedItem="{Binding SelectedRepo}"
+                             IsEnabled="{Binding IsIdle}" Background="Transparent" BorderThickness="0"
+                             ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate DataType="{x:Type vm:RepoViewModel}">
+                                <StackPanel Margin="2,6">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="{Binding Name}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                                        <Border Grid.Column="1" CornerRadius="8" Padding="7,1" Margin="8,0,0,0"
+                                                Background="{DynamicResource SubtleFillColorSecondaryBrush}">
+                                            <TextBlock Text="{Binding Source}" FontSize="11"
+                                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                                        </Border>
+                                    </Grid>
+                                    <TextBlock Text="{Binding Detail}" Style="{StaticResource SecondaryText}" Margin="0,2,0,0"
+                                               ToolTip="{Binding Repo.Path}" />
+                                    <TextBlock Text="{Binding AnalyzedText}" Style="{StaticResource SecondaryText}" FontSize="11"
+                                               Foreground="{DynamicResource TextFillColorTertiaryBrush}" />
+                                </StackPanel>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                </Grid>
+            </DockPanel>
+        </Border>
+
+        <!-- Main area: the report, or a placeholder with progress and messages -->
+        <Grid Grid.Column="1">
+            <!-- Navigated from code (see MainWindow.xaml.cs): WebView2.Source can't be set back to null. -->
+            <wv2:WebView2 x:Name="Viewer"
+                          Visibility="{Binding ShowReport, Converter={StaticResource BoolToVisibility}}" />
+
+            <Grid Visibility="{Binding ShowPlaceholder, Converter={StaticResource BoolToVisibility}}"
+                  Background="{DynamicResource ApplicationBackgroundBrush}">
+                <StackPanel MaxWidth="520" VerticalAlignment="Center" HorizontalAlignment="Center" Margin="32">
+                    <Path Data="{StaticResource LogoGeometry}" Width="48" Height="48" Stretch="Uniform" HorizontalAlignment="Center"
+                          Stroke="{DynamicResource AccentTextFillColorPrimaryBrush}" StrokeThickness="1.6"
+                          StrokeLineJoin="Round" StrokeStartLineCap="Round" StrokeEndLineCap="Round" Margin="0,0,0,20" />
+                    <TextBlock Text="{Binding PlaceholderTitle}" FontSize="20" FontWeight="SemiBold"
+                               TextAlignment="Center" TextWrapping="Wrap" />
+                    <TextBlock Text="{Binding PlaceholderText}" Margin="0,10,0,0" TextAlignment="Center" TextWrapping="Wrap"
+                               Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                    <ProgressBar IsIndeterminate="True" Height="4" Margin="40,22,40,0"
+                                 Visibility="{Binding IsBusy, Converter={StaticResource BoolToVisibility}}" />
+                    <Button Content="Cancel" HorizontalAlignment="Center" Margin="0,18,0,0" Command="{Binding CancelCommand}"
+                            Visibility="{Binding IsBusy, Converter={StaticResource BoolToVisibility}}" />
+                </StackPanel>
+            </Grid>
+        </Grid>
+    </Grid>
+</Window>

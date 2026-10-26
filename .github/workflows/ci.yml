@@ -16,10 +16,10 @@ jobs:
           global-json-file: global.json
 
       - name: Build
-        run: dotnet build Burndown.sln --configuration Release
+        run: dotnet build PopUp.sln --configuration Release
 
       - name: Test
-        run: dotnet test Burndown.sln --configuration Release --no-build
+        run: dotnet test PopUp.sln --configuration Release --no-build
 
       # End-to-end check: the sample solution contains deliberate violations, so `check` must
       # find them and exit with code 3. Any other exit code means something regressed.
@@ -27,8 +27,8 @@ jobs:
         run: |
           dotnet build samples/ShopSample/ShopSample.sln
           set +e
-          dotnet run --project src/Burndown.Cli --configuration Release --no-build -- \
-            check samples/ShopSample/ShopSample.sln --sarif burndown.sarif
+          dotnet run --project src/PopUp.Cli --configuration Release --no-build -- \
+            check samples/ShopSample/ShopSample.sln --sarif popup.sarif
           code=$?
           set -e
           if [ "$code" -ne 3 ]; then
@@ -38,19 +38,19 @@ jobs:
 
       - name: Generate the sample's HTML report
         run: |
-          dotnet run --project src/Burndown.Cli --configuration Release --no-build -- \
-            report samples/ShopSample/ShopSample.sln -o burndown-report.html
+          dotnet run --project src/PopUp.Cli --configuration Release --no-build -- \
+            report samples/ShopSample/ShopSample.sln -o popup-report.html
 
       - name: Upload reports
         uses: actions/upload-artifact@v7
         with:
-          name: burndown-reports
+          name: popup-reports
           path: |
-            burndown.sarif
-            burndown-report.html
+            popup.sarif
+            popup-report.html
 
   # The desktop app is a Windows (WPF) program, so it's published on a Windows runner. The result is
-  # attached to the run as a download: Burndown.exe plus the BuildHost folders it needs.
+  # attached to the run as a download: PopUp.exe plus the BuildHost folders it needs.
   desktop:
     runs-on: windows-latest
     steps:
@@ -60,11 +60,11 @@ jobs:
         with:
           global-json-file: global.json
 
-      - name: Publish Burndown.exe
-        run: dotnet publish src/Burndown.Desktop --configuration Release --runtime win-x64 --output artifacts/Burndown
+      - name: Publish PopUp.exe
+        run: dotnet publish src/PopUp.Desktop --configuration Release --runtime win-x64 --output artifacts/PopUp
 
       - name: Upload the desktop app
         uses: actions/upload-artifact@v7
         with:
-          name: Burndown-desktop-win-x64
-          path: artifacts/Burndown
+          name: PopUp-desktop-win-x64
+          path: artifacts/PopUp

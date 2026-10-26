@@ -1,7 +1,0 @@
-<Project Sdk="Microsoft.NET.Sdk">
-
-  <ItemGroup>
-    <InternalsVisibleTo Include="Burndown.Repos.Tests" />
-  </ItemGroup>
-
-</Project>

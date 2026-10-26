@@ -483,11 +483,11 @@ $RECYCLE.BIN/
 # Vim temporary swap files
 *.swp
 
-# Output of `burndown analyze -o` runs on the samples
+# Output of `popup analyze -o` runs on the samples
 samples/**/graph.json
 
 # The template's macOS "*.app" rule matches this folder on case-insensitive file systems
 !samples/ShopSample/Shop.App/
 
-# Reports written by `burndown report`
-burndown-report.html
+# Reports written by `popup report`
+popup-report.html

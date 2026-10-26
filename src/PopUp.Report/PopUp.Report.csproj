@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\PopUp.Core\PopUp.Core.csproj" />
+  </ItemGroup>
+
+  <!-- The page template, styles, script, and Cytoscape.js are compiled into the assembly and inlined into each report. -->
+  <ItemGroup>
+    <EmbeddedResource Include="Assets\*" LogicalName="PopUp.Report.%(Filename)%(Extension)" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="PopUp.Report.Tests" />
+  </ItemGroup>
+
+</Project>

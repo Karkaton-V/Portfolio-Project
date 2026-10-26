@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <AssemblyName>popup</AssemblyName>
+    <PackAsTool>true</PackAsTool>
+    <ToolCommandName>popup</ToolCommandName>
+    <PackageId>PopUp.Tool</PackageId>
+    <Version>0.8.0</Version>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\PopUp.Analysis\PopUp.Analysis.csproj" />
+    <ProjectReference Include="..\PopUp.Core\PopUp.Core.csproj" />
+    <ProjectReference Include="..\PopUp.Report\PopUp.Report.csproj" />
+    <ProjectReference Include="..\PopUp.Repos\PopUp.Repos.csproj" />
+  </ItemGroup>
+
+</Project>

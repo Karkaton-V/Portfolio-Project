@@ -1,8 +1,8 @@
 # Case study: jasontaylordev/CleanArchitecture
 
-I ran Burndown on [jasontaylordev/CleanArchitecture](https://github.com/jasontaylordev/CleanArchitecture), a
+I ran PopUp on [jasontaylordev/CleanArchitecture](https://github.com/jasontaylordev/CleanArchitecture), a
 popular .NET solution template that's built specifically to demonstrate layered architecture. The goal was to
-test Burndown on code I didn't write, and to see whether the template follows its own rules.
+test PopUp on code I didn't write, and to see whether the template follows its own rules.
 
 | | |
 | --- | --- |
@@ -10,13 +10,13 @@ test Burndown on code I didn't write, and to see whether the template follows it
 | Solution | `CleanArchitecture.slnx`: 13 projects, including .NET Aspire hosts and four test projects |
 | Graph | 144 types and 388 dependencies across 12 projects with types (50 namespaces) |
 | Analysis time | About 14 s on a laptop: ~10.5 s MSBuild loading the projects, ~3.6 s compiling and extracting in parallel (the first run after a reboot takes longer while MSBuild warms up) |
-| Rules | [`burndown.json`](burndown.json) in this folder |
+| Rules | [`popup.json`](popup.json) in this folder |
 
 ```bash
 dotnet restore CleanArchitecture.slnx
-burndown analyze CleanArchitecture.slnx -o graph.json
-burndown check graph.json --config burndown.json
-burndown report graph.json --config burndown.json -o report.html
+popup analyze CleanArchitecture.slnx -o graph.json
+popup check graph.json --config popup.json
+popup report graph.json --config popup.json -o report.html
 ```
 
 The report draws the projects as a layered diagram computed from the code alone: functional tests, then Web,
@@ -72,14 +72,14 @@ cycle as a failure would have produced two false alarms on a well-designed codeb
 The most depended-on types are the two entities (`TodoItem`, `TodoList`) and `IApplicationDbContext`, as you'd
 expect for a CRUD-style application: every command and query handler goes through the database abstraction.
 
-## What it found in Burndown
+## What it found in PopUp
 
 Running on real code turned up three problems that the hand-written tests and the sample solution never hit.
 Each is now fixed, and the first has a regression test:
 
 1. **False "unresolved type" warning.** The DI setup registers MediatR behaviours with
    `typeof(AuthorizationBehaviour<,>)`. For an unbound generic like that, Roslyn fills the empty type slots with
-   placeholder *error* types, which Burndown reported as "2 referenced types could not be resolved (TRequest,
+   placeholder *error* types, which PopUp reported as "2 referenced types could not be resolved (TRequest,
    TResponse)". Unbound generics are now handled as references to the generic type itself.
 2. **Indistinguishable duplicate names.** Application, Infrastructure, and Web each declare a class with the identical
    full name `Microsoft.Extensions.DependencyInjection.DependencyInjection` (a common convention for DI extension
@@ -99,9 +99,9 @@ Each is now fixed, and the first has a regression test:
   `project:` instead of namespace patterns.
 - **Runtime wiring is invisible.** MediatR dispatches each command to its handler at runtime by type. The
   `Web.Endpoints.TodoItems` endpoint group takes an `ISender` and calls `sender.Send(command)`, so statically it
-  depends on the command type, never the handler. Burndown reports exactly that:
+  depends on the command type, never the handler. PopUp reports exactly that:
   `impact CreateTodoItemCommandHandler` says "Nothing in the solution depends on" it. That's the same static-analysis
   limit the sample's `IOrderService` shows. A future version could recognize MediatR's `IRequestHandler<TRequest>`
   convention and link each command to its handler.
-- **Restore first.** Before `dotnet restore`, framework and NuGet types can't be resolved, and Burndown reports
+- **Restore first.** Before `dotnet restore`, framework and NuGet types can't be resolved, and PopUp reports
   them instead of guessing.
