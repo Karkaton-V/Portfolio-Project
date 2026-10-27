@@ -26,6 +26,9 @@ public sealed record ReportOptions
     /// <summary>Where the code comes from; shown as a breadcrumb before the title when set.</summary>
     public ReportSource? Source { get; init; }
 
+    /// <summary>The branch analyzed, when it isn't the repository's default; shown next to the title.</summary>
+    public string? Branch { get; init; }
+
     public string ToolVersion { get; init; } = "";
 
     public DateTimeOffset GeneratedAt { get; init; } = DateTimeOffset.UtcNow;
@@ -88,6 +91,7 @@ public static partial class HtmlReportWriter
         {
             options.Title,
             options.Source,
+            options.Branch,
             options.ToolVersion,
             GeneratedAt = options.GeneratedAt.ToString("u"),
             Theme = options.Theme.ToLowerInvariant(),

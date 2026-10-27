@@ -19,6 +19,7 @@ internal static class ReportCommand
             ["--exclude"] = "exclude",
             ["--title"] = "title",
             ["--theme"] = "theme",
+            ["--branch"] = "branch",
         });
         arguments.ExpectPositionals(1, "input");
 
@@ -53,6 +54,7 @@ internal static class ReportCommand
                 { GitHub: { } gitHub } => new ReportSource(ReportSourceKind.GitHub, gitHub.Owner, gitHub.WebUrl),
                 _ => new ReportSource(ReportSourceKind.Folder, location.Owner),
             },
+            Branch = arguments.Option("branch"),
             Theme = (arguments.Option("theme") ?? settings.Theme ?? ReportThemes.Default).ToLowerInvariant(),
             ToolVersion = CheckCommand.ToolVersion(),
             Check = session.Config is null ? null : ArchitectureChecker.Check(graph, session.Config),

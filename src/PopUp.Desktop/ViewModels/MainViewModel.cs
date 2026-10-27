@@ -39,11 +39,18 @@ public sealed partial class MainViewModel : ObservableObject
     public RepoRegistry Registry => _registry;
 
     [ObservableProperty]
-    [NotifyCanExecuteChangedFor(nameof(AnalyzeCommand), nameof(SyncCommand), nameof(OpenFolderCommand), nameof(OpenInBrowserCommand))]
-    [NotifyPropertyChangedFor(nameof(CanLocate))]
+    [NotifyCanExecuteChangedFor(nameof(AnalyzeCommand), nameof(OpenFolderCommand), nameof(OpenInBrowserCommand))]
+    [NotifyPropertyChangedFor(nameof(CanLocate), nameof(IsGitHubSelected), nameof(IsFolderSelected), nameof(CanPullXtra))]
     private RepoViewModel? _selectedRepo;
 
     public bool CanLocate => SelectedRepo is not null && !IsBusy;
+
+    /// <summary>A GitHub repository shows Pull Latest and Pull Xtra; a folder shows one wide Analyze button.</summary>
+    public bool IsGitHubSelected => SelectedRepo?.IsGitHub == true;
+
+    public bool IsFolderSelected => !IsGitHubSelected;
+
+    public bool CanPullXtra => IsGitHubSelected && !IsBusy;
 
     /// <summary>The report the viewer shows; null shows the placeholder instead.</summary>
     [ObservableProperty]
@@ -51,8 +58,8 @@ public sealed partial class MainViewModel : ObservableObject
     private Uri? _reportUri;
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(ShowReport), nameof(ShowPlaceholder), nameof(IsIdle), nameof(CanLocate))]
-    [NotifyCanExecuteChangedFor(nameof(AnalyzeCommand), nameof(SyncCommand), nameof(CancelCommand))]
+    [NotifyPropertyChangedFor(nameof(ShowReport), nameof(ShowPlaceholder), nameof(IsIdle), nameof(CanLocate), nameof(CanPullXtra))]
+    [NotifyCanExecuteChangedFor(nameof(AnalyzeCommand), nameof(CancelCommand))]
     private bool _isBusy;
 
     [ObservableProperty]
@@ -205,30 +212,27 @@ public sealed partial class MainViewModel : ObservableObject
 
     private bool CanActOnSelection() => SelectedRepo is not null && !IsBusy;
 
+    /// <summary>Analyze for a folder; Pull Latest for a GitHub repository (the newest commit of its default branch).</summary>
     [RelayCommand(CanExecute = nameof(CanActOnSelection))]
-    private Task AnalyzeAsync() => AnalyzeSelectedAsync();
+    private Task AnalyzeAsync() => AnalyzeSelectedAsync(branch: null);
 
-    private bool CanSync() => SelectedRepo is { IsGitHub: true, HasLocalCopy: true } && !IsBusy;
+    /// <summary>Pull Xtra: pulls and analyzes one branch of the selected GitHub repository (null: its default branch).</summary>
+    public Task PullBranchAsync(string? branch) => AnalyzeSelectedAsync(branch);
 
-    [RelayCommand(CanExecute = nameof(CanSync))]
-    private async Task SyncAsync()
+    /// <summary>The selected GitHub repository's branches and which one is the default, for the Pull Xtra picker.</summary>
+    public async Task<(IReadOnlyList<string> Branches, string DefaultBranch)> ListBranchesAsync(RepoViewModel repo, CancellationToken token)
     {
-        if (SelectedRepo is not { } selected)
+        if (!GitHubRepoRef.TryParse(repo.Repo.GitHub, out var gitHub))
         {
-            return;
+            throw new InvalidOperationException($"{repo.Name} isn't linked to a GitHub repository.");
         }
 
-        await RunAsync($"Updating {selected.Name}", async (progress, token) =>
-        {
-            progress.Report("Pulling the latest changes…");
-            await Tools.PullAsync(selected.Repo.Path, token);
-            progress.Report("Restoring NuGet packages…");
-            await Tools.RestoreAsync(SolutionLocator.Resolve(selected.Repo.Path), token);
-            var synced = selected.Repo with { SyncedAt = DateTimeOffset.Now };
-            _registry.Update(synced);
-            _registry.Save();
-            return synced;
-        }, analyzeAfter: true);
+        var gitHubToken = await Tools.FindGitHubTokenAsync(token)
+            ?? throw new GitHubException("Listing branches needs a GitHub sign-in: install the GitHub CLI and run `gh auth login`.");
+        var client = new GitHubClient(Http, gitHubToken);
+        var defaultBranch = client.GetDefaultBranchAsync(gitHub, token);
+        var branches = await client.ListBranchesAsync(gitHub, token);
+        return (branches, await defaultBranch);
     }
 
     [RelayCommand(CanExecute = nameof(IsBusy))]
@@ -273,14 +277,18 @@ public sealed partial class MainViewModel : ObservableObject
         Status = $"Removed {repo.Name}";
     }
 
-    private async Task AnalyzeSelectedAsync()
+    /// <param name="branch">For a GitHub repository, the branch to pull and analyze; null is its default branch.</param>
+    private async Task AnalyzeSelectedAsync(string? branch)
     {
         if (SelectedRepo is not { } selected)
         {
             return;
         }
 
-        await RunAsync($"Analyzing {selected.Name}", async (progress, token) =>
+        var title = !selected.IsGitHub ? $"Analyzing {selected.Name}"
+            : branch is null ? $"Pulling the latest {selected.Name}"
+            : $"Pulling {branch} of {selected.Name}";
+        await RunAsync(title, async (progress, token) =>
         {
             var repo = selected.Repo;
             Exception? localError = null;
@@ -296,15 +304,22 @@ public sealed partial class MainViewModel : ObservableObject
                 }
             }
 
-            // 2. A local copy: analyze it here.
+            // 2. A local copy: bring it up to date with GitHub if it's a GitHub repository, then analyze it here.
             if (Directory.Exists(repo.Path))
             {
+                string? freshness = null;
+                if (repo.GitHub is not null)
+                {
+                    (repo, freshness) = await CheckOutFromGitHubAsync(repo, branch, progress, token);
+                }
+
                 try
                 {
                     // Roslyn and MSBuild do heavy synchronous work; keep it off the UI thread.
-                    var summary = await Task.Run(() => RepoAnalyzer.AnalyzeAsync(repo, selected.ReportPath, progress, token), token);
+                    var analyzed = repo;
+                    var summary = await Task.Run(() => RepoAnalyzer.AnalyzeAsync(analyzed, selected.ReportPath, progress, token), token);
                     var rules = summary.Errors is { } errors ? $" · {errors} rule error(s), {summary.Warnings} warning(s)" : "";
-                    return Analyzed(selected, repo, remotely: false, $"{summary.Types} types, {summary.Dependencies} dependencies{rules}");
+                    return Analyzed(selected, repo, remotely: false, $"{summary.Types} types, {summary.Dependencies} dependencies{rules}{freshness}");
                 }
                 catch (Exception ex) when (repo.GitHub is not null && ex is not OperationCanceledException and not SolutionNotFoundException)
                 {
@@ -321,6 +336,7 @@ public sealed partial class MainViewModel : ObservableObject
             // 3. No usable local copy of a GitHub repository: analyze it on GitHub's servers.
             try
             {
+                repo = repo with { Branch = branch };
                 await AnalyzeOnGitHubAsync(repo, selected.ReportPath, progress, token);
             }
             catch (Exception ex) when (localError is not null && ex is not OperationCanceledException)
@@ -333,6 +349,77 @@ public sealed partial class MainViewModel : ObservableObject
             return Analyzed(selected, repo, remotely: true, $"Analyzed on GitHub ({_settings.Runner} runs the workflow)");
         }, analyzeAfter: false);
     }
+
+    /// <summary>
+    /// Brings a GitHub repository's local copy to the newest commit of <paramref name="branch"/> (null: its default
+    /// branch) before it's analyzed. A copy PopUp downloaded is simply made to match GitHub. A folder of the user's
+    /// own, like one GitHub Desktop manages, is only switched or pulled when it has no uncommitted changes, and only
+    /// fast-forwarded, so their work is never lost. Pull Latest carries on with the copy here when GitHub can't be
+    /// reached; a branch picked with Pull Xtra fails instead, rather than showing a different branch.
+    /// </summary>
+    /// <returns>The repository with the branch recorded, and a note for the status line if there's anything to say.</returns>
+    private async Task<(RegisteredRepo Repo, string? Note)> CheckOutFromGitHubAsync(
+        RegisteredRepo repo, string? branch, IProgress<string> progress, CancellationToken token)
+    {
+        progress.Report(branch is null ? "Getting the latest from GitHub…" : $"Getting {branch} from GitHub…");
+        string defaultBranch, before;
+        try
+        {
+            defaultBranch = await Tools.DefaultBranchAsync(repo.Path, token);
+            before = await Tools.HeadAsync(repo.Path, token);
+        }
+        catch (ToolException ex)
+        {
+            return branch is null
+                ? (repo, " · couldn't reach GitHub, so this is the copy on this computer")
+                : throw new InvalidOperationException($"Couldn't reach GitHub to get {branch}. {FirstLine(ex.Message)}");
+        }
+
+        var target = branch ?? defaultBranch;
+        if (!repo.Managed && await Tools.HasUncommittedChangesAsync(repo.Path, token))
+        {
+            return branch is null
+                ? (repo, " · your folder has uncommitted changes, so it wasn't pulled")
+                : throw new InvalidOperationException(
+                    $"{repo.Name} has uncommitted changes, so PopUp won't switch it to {branch}. " +
+                    "Commit or stash them first (GitHub Desktop can do either), then try again.");
+        }
+
+        try
+        {
+            await Tools.CheckOutLatestAsync(repo.Path, target, ownedByPopUp: repo.Managed, token);
+        }
+        catch (ToolException ex)
+        {
+            // For a folder of the user's own, usually a branch with commits that aren't on GitHub yet.
+            return branch is null
+                ? (repo, $" · couldn't pull {target} ({FirstLine(ex.Message)}), so this is the copy on this computer")
+                : throw new InvalidOperationException($"Couldn't get {branch}: {FirstLine(ex.Message)}");
+        }
+
+        var updated = repo with { Branch = target == defaultBranch ? null : target };
+        string? note = null;
+        if (await Tools.HeadAsync(repo.Path, token) != before)
+        {
+            progress.Report("Restoring NuGet packages…");
+            try
+            {
+                await Tools.RestoreAsync(SolutionLocator.Resolve(repo.Path), token);
+            }
+            catch (Exception ex) when (ex is ToolException or SolutionNotFoundException)
+            {
+                // Analysis still runs; types from packages that didn't restore show up as unresolved.
+            }
+
+            updated = updated with { SyncedAt = DateTimeOffset.Now };
+            note = target == defaultBranch ? " · pulled the latest from GitHub" : $" · pulled {target} from GitHub";
+        }
+
+        _registry.Update(updated); // saved with the analysis result
+        return (updated, note);
+    }
+
+    private static string FirstLine(string text) => text.Split('\n', 2)[0].Trim();
 
     private RegisteredRepo Analyzed(RepoViewModel item, RegisteredRepo repo, bool remotely, string status)
     {
@@ -359,7 +446,7 @@ public sealed partial class MainViewModel : ObservableObject
         }
 
         var analyzer = new RemoteAnalyzer(new GitHubClient(Http, gitHubToken), runner);
-        await analyzer.AnalyzeAsync(target, reportPath, progress, token);
+        await analyzer.AnalyzeAsync(target, reportPath, progress, token, repo.Branch);
     }
 
     /// <summary>
@@ -426,7 +513,7 @@ public sealed partial class MainViewModel : ObservableObject
 
         if (analyzeAfter && result is not null)
         {
-            await AnalyzeSelectedAsync();
+            await AnalyzeSelectedAsync(branch: null);
         }
     }
 

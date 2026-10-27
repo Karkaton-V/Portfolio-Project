@@ -82,6 +82,7 @@
     focusProject: null,     // in namespace view, only this project's namespaces (null = all)
     focusNamespace: null,   // in type view, the namespace being explored (null = all types)
     impactOf: null,         // in type view, show only this type and what depends on it
+    files: null,            // file view of one card: { kind, key, back } (see openFiles); null otherwise
     kinds: new Set(ALL_KINDS.filter(k => kindCounts.has(k))),
     projects: new Set(projectCounts.keys()),
   };
@@ -334,6 +335,97 @@
     return { elements: [...nodes, ...links], count: nodes.length };
   }
 
+  // ---------- file view ----------
+
+  // Right-clicking a card opens its file view: one card per source file inside it, with arrows to the code each
+  // file pulls in (its dependencies) and from the code that depends on it. Code outside the card is drawn faded.
+  // A dependency belongs to the file where it's written (an edge's location); one *on* a type belongs to the
+  // file that declares that type.
+  const NO_FILE = '(no source file)';
+  const primaryFile = node => node.locations[0]?.filePath ?? NO_FILE;
+  const usageFile = edge => edge.location?.filePath ?? primaryFile(nodesById.get(edge.sourceId));
+  const baseName = path => path.split(/[\\/]/).pop();
+  const keyOfKind = kind => (kind === 'project' ? n => n.project : kind === 'namespace' ? n => n.namespace : n => n.id);
+  const groupName = (kind, key) => (kind === 'project' ? key : kind === 'namespace' ? nsLabel(key) : nodesById.get(key).name);
+  const shortGroupName = (kind, key) => (kind === 'namespace' ? shortNamespace(key) : groupName(kind, key));
+
+  // The types inside the card whose files are shown.
+  function filesMembers() {
+    const keyOf = keyOfKind(state.files.kind);
+    return new Set(data.nodes.filter(n => isVisible(n) && keyOf(n) === state.files.key).map(n => n.id));
+  }
+
+  // Per file: the types declared in it, and how many dependencies it pulls in and has pushed onto it.
+  function fileSummaries(members) {
+    const files = new Map();
+    const file = path => {
+      if (!files.has(path)) files.set(path, { path, types: new Set(), pulls: 0, pushedTo: 0 });
+      return files.get(path);
+    };
+    for (const id of members) {
+      const node = nodesById.get(id);
+      (node.locations.length ? node.locations.map(l => l.filePath) : [NO_FILE]).forEach(path => file(path).types.add(id));
+    }
+    for (const e of visibleEdges()) {
+      if (members.has(e.sourceId) && !members.has(e.targetId)) file(usageFile(e)).pulls++;
+      if (members.has(e.targetId) && !members.has(e.sourceId)) file(primaryFile(nodesById.get(e.targetId))).pushedTo++;
+    }
+    return files;
+  }
+
+  function fileElements() {
+    const { kind, key } = state.files;
+    const keyOf = keyOfKind(kind);
+    const members = filesMembers();
+    const files = fileSummaries(members);
+    const project = nodesById.get([...members][0])?.project;
+
+    const outside = new Map();
+    const links = new Map();
+    for (const e of visibleEdges()) {
+      const fromInside = members.has(e.sourceId);
+      const toInside = members.has(e.targetId);
+      if (!fromInside && !toInside) continue;
+      const end = (id, inside, path) => {
+        if (inside) return `file:${path}`;
+        const other = keyOf(nodesById.get(id));
+        if (!outside.has(other)) outside.set(other, nodesById.get(id).project);
+        return `out:${other}`;
+      };
+      const from = end(e.sourceId, fromInside, fromInside ? usageFile(e) : null);
+      const to = end(e.targetId, toInside, toInside ? primaryFile(nodesById.get(e.targetId)) : null);
+      if (from === to) continue;
+      const linkKey = `${from}\u0000${to}`;
+      const link = links.get(linkKey) || { from, to, count: 0 };
+      link.count++;
+      links.set(linkKey, link);
+    }
+
+    if (files.size + outside.size > MAX_DRAWN_TYPES) {
+      return { elements: [], count: files.size, tooMany: true };
+    }
+
+    const card = (id, text, cardProject, classes, extra) => ({
+      group: 'nodes',
+      data: {
+        id, label: text, project: cardProject, color: projectColor(cardProject),
+        fill: tint(projectColor(cardProject), 0.16), ...cardSize(text), ...extra,
+      },
+      classes,
+    });
+    const nodes = [
+      ...[...files.values()].map(f => card(`file:${f.path}`, `${baseName(f.path)}\n${plural(f.types.size, 'type')}`,
+        nodesById.get([...f.types][0])?.project ?? project, 'card file', { path: f.path })),
+      ...[...outside].map(([other, otherProject]) => card(`out:${other}`, shortGroupName(kind, other), otherProject,
+        'card outside context', { group: other })),
+    ];
+    const edges = [...links.values()].map(link => ({
+      group: 'edges',
+      data: { id: `f:${link.from}\u0000${link.to}`, source: link.from, target: link.to, weight: link.count, label: String(link.count) },
+    }));
+    return { elements: [...nodes, ...edges], count: files.size };
+  }
+
   // ---------- Cytoscape ----------
 
   function graphStyle() {
@@ -519,7 +611,7 @@
     viewAdjusted = false; // a new layout gets a fresh fit
     const layout = state.impactOf
       ? { name: 'concentric', concentric: n => 10 - n.data('distance'), levelWidth: () => 1, minNodeSpacing: 48 }
-      : state.level !== 'type'
+      : state.files || state.level !== 'type'
         ? { name: 'preset', positions: layeredPositions() }
         : {
           name: 'cose', randomize: true, padding: 48, numIter: 2500,
@@ -553,7 +645,8 @@
   }
 
   function render() {
-    const result = state.level === 'project' ? projectElements()
+    const result = state.files ? fileElements()
+      : state.level === 'project' ? projectElements()
       : state.level === 'namespace' ? namespaceElements()
         : typeElements();
     cy.elements().remove();
@@ -563,7 +656,8 @@
     empty.hidden = result.elements.length > 0;
     empty.replaceChildren(el('p', {
       text: result.tooMany
-        ? `${result.count} types is too many to draw at once. Double-click a namespace, search for a type, or narrow the filters.`
+        ? state.files ? `${result.count} files is too many to draw at once. Right-click a namespace or a type instead.`
+          : `${result.count} types is too many to draw at once. Double-click a namespace, search for a type, or narrow the filters.`
         : 'Nothing to show with the current filters.',
     }));
 
@@ -572,7 +666,7 @@
     renderLegend();
     if (result.elements.length > 0) runLayout();
     for (const level of LEVELS) {
-      document.getElementById(`level-${level}`).setAttribute('aria-pressed', String(state.level === level));
+      document.getElementById(`level-${level}`).setAttribute('aria-pressed', String(!state.files && state.level === level));
     }
   }
 
@@ -587,15 +681,32 @@
   cy.on('tap', 'node', event => {
     const target = event.target;
     highlight(target);
-    if (state.level === 'project') showProjectDetails(target.data('group'));
+    if (state.files) {
+      if (target.hasClass('file')) showFileDetails(target.data('path'));
+      else showGroupDetails(state.files.kind, target.data('group'));
+    } else if (state.level === 'project') showProjectDetails(target.data('group'));
     else if (state.level === 'namespace') showNamespaceDetails(target.data('group'));
     else showTypeDetails(target.id());
   });
 
   cy.on('dbltap', 'node', event => {
-    if (state.level === 'project') openProject(event.target.data('group'));
+    if (state.files) {
+      if (event.target.hasClass('outside')) openFiles(state.files.kind, event.target.data('group'));
+    } else if (state.level === 'project') openProject(event.target.data('group'));
     else if (state.level === 'namespace') openNamespace(event.target.data('group'));
   });
+
+  // Right-click a card to see the files inside it (see fileElements). In the file view, right-clicking a faded
+  // card outside opens that one's files instead.
+  cy.on('cxttap', 'node', event => {
+    const target = event.target;
+    if (state.files) {
+      if (target.hasClass('outside')) openFiles(state.files.kind, target.data('group'));
+    } else if (state.level === 'type') openFiles('type', target.id());
+    else openFiles(state.level, target.data('group'));
+  });
+  // The graph has its own right-click action, so the browser's menu would only get in the way.
+  cy.container().addEventListener('contextmenu', event => event.preventDefault());
 
   cy.on('tap', event => {
     if (event.target === cy) {
@@ -620,6 +731,7 @@
   // ---------- navigation ----------
 
   function showLevel(level) {
+    state.files = null;
     state.level = level;
     state.focusProject = null;
     state.focusNamespace = null;
@@ -629,6 +741,7 @@
   }
 
   function openProject(project) {
+    state.files = null;
     state.level = 'namespace';
     state.focusProject = project;
     state.focusNamespace = null;
@@ -638,6 +751,7 @@
   }
 
   function openNamespace(ns) {
+    state.files = null;
     state.level = 'type';
     state.focusNamespace = ns;
     state.impactOf = null;
@@ -652,6 +766,7 @@
       state.projects.add(node.project);
       filtersChanged();
     }
+    state.files = null;
     state.level = 'type';
     state.focusNamespace = node.namespace;
     state.impactOf = null;
@@ -663,11 +778,34 @@
   }
 
   function showImpact(id) {
+    state.files = null;
     state.level = 'type';
     state.impactOf = id;
     render();
     focusElement(id);
     showTypeDetails(id);
+  }
+
+  // Opens the file view of one card. The view it came from is kept, so Back returns to it exactly.
+  function openFiles(kind, key) {
+    const back = state.files?.back ?? { level: state.level, focusProject: state.focusProject, focusNamespace: state.focusNamespace, impactOf: state.impactOf };
+    state.files = { kind, key, back };
+    state.impactOf = null;
+    render();
+    showFilesSummary();
+  }
+
+  function closeFiles() {
+    const { back } = state.files;
+    state.files = null;
+    Object.assign(state, back);
+    render();
+    if (back.impactOf) {
+      focusElement(back.impactOf);
+      showTypeDetails(back.impactOf);
+    } else if (back.level === 'type' && back.focusNamespace !== null) showNamespaceDetails(back.focusNamespace);
+    else if (back.level === 'namespace' && back.focusProject !== null) showProjectDetails(back.focusProject);
+    else showOverview();
   }
 
   function focusElement(id) {
@@ -687,7 +825,10 @@
       onclick: () => showLevel(topLevel),
     });
 
-    if (state.impactOf) {
+    if (state.files) {
+      scope.replaceChildren(el('span', {}, 'Files in ', el('strong', { text: groupName(state.files.kind, state.files.key) })),
+        el('button', { type: 'button', class: 'link', text: '← Back', onclick: closeFiles }));
+    } else if (state.impactOf) {
       const node = nodesById.get(state.impactOf);
       scope.replaceChildren(el('span', {}, 'Impact of ', el('strong', { text: node.name })), back);
     } else if (state.level === 'type' && state.focusNamespace !== null) {
@@ -697,9 +838,9 @@
     } else if (state.level === 'namespace' && state.focusProject !== null) {
       scope.replaceChildren(el('span', {}, 'Namespaces in ', el('strong', { text: state.focusProject })), back);
     } else if (state.level === 'project') {
-      scope.replaceChildren(el('span', { text: 'Double-click a project to see its namespaces.' }));
+      scope.replaceChildren(el('span', { text: 'Double-click a project to see its namespaces. Right-click one to see its files.' }));
     } else {
-      scope.replaceChildren(el('span', { text: 'Double-click a namespace to see its types.' }));
+      scope.replaceChildren(el('span', { text: 'Double-click a namespace to see its types. Right-click one to see its files.' }));
     }
   }
 
@@ -715,7 +856,13 @@
     if ([...onScreen].some(p => p && !projectSlot.get(p))) projects.push(item(swatch('var(--series-other)'), 'Other projects'));
 
     const rows = [];
-    if (state.impactOf) {
+    if (state.files) {
+      rows.push([
+        item(swatch(css('--muted')), `A file in ${groupName(state.files.kind, state.files.key)}`),
+        item(el('i', { class: 'swatch square faded-swatch', style: `--swatch:${css('--muted')}` }), 'Outside it'),
+        item(line(css('--edge')), 'Depends on (thicker = more)'),
+      ]);
+    } else if (state.impactOf) {
       rows.push([
         item(swatch(css('--accent'), 'round'), 'Changed type'),
         item(swatch(css('--danger'), 'ring'), 'Direct dependent'),
@@ -751,6 +898,7 @@
       el('h3', { text: 'How to use' }),
       el('ul', { class: 'subtle' },
         el('li', { text: 'Click a node to see its dependencies; double-click a project or namespace to drill in.' }),
+        el('li', { text: 'Right-click any card to see the files inside it: what each file pulls in, and what depends on it.' }),
         el('li', { text: 'Search for a type, then use "Show impact" to see everything that depends on it.' }),
         el('li', { text: 'The Health tab lists cycles, rule violations, and the most connected types.' })),
     );
@@ -760,9 +908,9 @@
     return el('div', { class: 'metric' }, el('b', { text: String(value) }), el('span', { text: label }));
   }
 
-  function typeRow(id, meta) {
+  function typeRow(id, meta, stacked = false) {
     const node = nodesById.get(id);
-    return el('li', {}, el('button', { type: 'button', class: 'row', onclick: () => selectType(id) },
+    return el('li', {}, el('button', { type: 'button', class: stacked ? 'row stacked' : 'row', onclick: () => selectType(id) },
       el('span', { class: 'name', text: node.fullName }), meta ? el('span', { class: 'meta', text: meta }) : null));
   }
 
@@ -890,6 +1038,79 @@
       el('ul', { class: 'list' }, [...namespaces].sort((a, b) => a[0].localeCompare(b[0])).map(([ns, count]) =>
         el('li', {}, el('button', { type: 'button', class: 'row', onclick: () => openNamespace(ns) },
           el('span', { class: 'name', text: nsLabel(ns) }), el('span', { class: 'meta', text: plural(count, 'type') }))))),
+    );
+    selectTab('details');
+  }
+
+  // A faded card in the file view stands for a whole project, namespace, or type outside the one opened.
+  function showGroupDetails(kind, key) {
+    if (kind === 'project') showProjectDetails(key);
+    else if (kind === 'namespace') showNamespaceDetails(key);
+    else showTypeDetails(key);
+  }
+
+  function fileRow(path, meta) {
+    return el('li', {}, el('button', {
+      type: 'button', class: 'row',
+      onclick: () => { focusElement(`file:${path}`); showFileDetails(path); },
+    }, el('span', { class: 'name', text: baseName(path) }), meta ? el('span', { class: 'meta', text: meta }) : null));
+  }
+
+  // The file view's opening panel: every file in the card, busiest first.
+  function showFilesSummary() {
+    const { kind, key } = state.files;
+    const files = [...fileSummaries(filesMembers()).values()].sort((a, b) => (b.pulls + b.pushedTo) - (a.pulls + a.pushedTo) || a.path.localeCompare(b.path));
+    setChildren(detailsPanel,
+      el('h2', { text: `Files in ${groupName(kind, key)}` }),
+      el('p', { class: 'subtle', text: 'Each card is a source file. Arrows leave a file for the code it pulls in, and point at it from the code that depends on it. Faded cards are outside.' }),
+      el('div', { class: 'metrics' },
+        metric(files.length, 'files'),
+        metric(files.reduce((sum, f) => sum + f.pulls, 0), 'pulled in'),
+        metric(files.reduce((sum, f) => sum + f.pushedTo, 0), 'pushed to')),
+      el('h3', { text: 'Files' }),
+      el('ul', { class: 'list' }, files.map(f => fileRow(f.path, `${f.pulls} out · ${f.pushedTo} in`))),
+    );
+    selectTab('details');
+  }
+
+  // One file: the types written in it, what it pulls in (with the lines that do it), and what depends on it.
+  function showFileDetails(path) {
+    const declared = data.nodes.filter(n => n.locations.some(l => l.filePath === path) || (path === NO_FILE && !n.locations.length));
+    // In a file view, only the types of the card that was opened count, so this matches the arrows on the graph.
+    const scope = state.files ? filesMembers() : null;
+    const here = new Set(declared.filter(n => !scope || scope.has(n.id)).map(n => n.id));
+    const pulls = new Map();
+    const pushedTo = new Map();
+    for (const e of visibleEdges()) {
+      if (here.has(e.sourceId) && usageFile(e) === path && !here.has(e.targetId)) {
+        if (!pulls.has(e.targetId)) pulls.set(e.targetId, { kinds: new Set(), lines: new Set() });
+        pulls.get(e.targetId).kinds.add(e.kind);
+        if (e.location) pulls.get(e.targetId).lines.add(e.location.line);
+      }
+      if (here.has(e.targetId) && primaryFile(nodesById.get(e.targetId)) === path && !here.has(e.sourceId)) {
+        if (!pushedTo.has(e.sourceId)) pushedTo.set(e.sourceId, new Set());
+        pushedTo.get(e.sourceId).add(e.kind);
+      }
+    }
+    const byName = map => [...map].sort((a, b) => nodesById.get(a[0]).fullName.localeCompare(nodesById.get(b[0]).fullName));
+    const lines = set => (set.size ? ` · line${set.size === 1 ? '' : 's'} ${[...set].sort((a, b) => a - b).join(', ')}` : '');
+
+    setChildren(detailsPanel,
+      el('h2', { text: baseName(path) }),
+      el('div', { class: 'location', text: path }),
+      el('div', { class: 'chips' }, el('span', { class: 'chip', text: plural(declared.length, 'type') })),
+      el('h3', { text: `Pulls in (${pulls.size})` }),
+      el('p', { class: 'subtle', text: 'Code this file depends on.' }),
+      pulls.size
+        ? el('ul', { class: 'list' }, byName(pulls).map(([id, use]) => typeRow(id, [...use.kinds].join(', ') + lines(use.lines), true)))
+        : el('p', { class: 'subtle', text: 'Nothing else in the solution.' }),
+      el('h3', { text: `Pushed to (${pushedTo.size})` }),
+      el('p', { class: 'subtle', text: 'Code that depends on the types in this file.' }),
+      pushedTo.size
+        ? el('ul', { class: 'list' }, byName(pushedTo).map(([id, kinds]) => typeRow(id, [...kinds].join(', '), true)))
+        : el('p', { class: 'subtle', text: 'Nothing else in the solution.' }),
+      el('h3', { text: 'Types in this file' }),
+      el('ul', { class: 'list' }, declared.sort((a, b) => a.name.localeCompare(b.name)).map(n => typeRow(n.id, n.kind))),
     );
     selectTab('details');
   }
@@ -1173,6 +1394,12 @@
 
   document.getElementById('title').textContent = data.title;
   if (data.source) showSource(data.source);
+  if (data.branch) {
+    const chip = document.getElementById('branch');
+    chip.textContent = data.branch;
+    chip.title = 'The branch analyzed';
+    chip.hidden = false;
+  }
   const stats = [[data.nodes.length, 'types'], [data.edges.length, 'dependencies'], [projectCounts.size, 'projects']];
   document.getElementById('stats').replaceChildren(...stats.map(([value, label]) =>
     el('div', {}, el('dt', { text: label }), el('dd', { text: String(value) }))));

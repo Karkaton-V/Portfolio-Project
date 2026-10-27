@@ -44,6 +44,7 @@ public static class RepoAnalyzer
         var html = HtmlReportWriter.Write(graph, new ReportOptions
         {
             Title = config?.Report.Title ?? location.Name,
+            Branch = repo.Branch,
             Source = location.GitHub is { } gitHub
                 ? new ReportSource(ReportSourceKind.GitHub, gitHub.Owner, gitHub.WebUrl)
                 : new ReportSource(ReportSourceKind.Folder, location.Owner),

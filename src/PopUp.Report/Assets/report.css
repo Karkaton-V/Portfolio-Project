@@ -207,6 +207,19 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
 .source-icon circle { fill: var(--accent-soft); }
 .crumb-sep { color: var(--faint); }
 
+/* A branch other than the default, next to the title. */
+.branch-chip {
+  flex: none;
+  padding: 2px 9px;
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: 12px;
+  font-family: ui-monospace, "Cascadia Code", Consolas, monospace;
+  white-space: nowrap;
+}
+.branch-chip[hidden] { display: none; }
+
 .topbar h1 {
   margin: 0;
   font-size: 15px;
@@ -633,6 +646,9 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
 .list button.row:hover { background: var(--surface-2); }
 .row .name { word-break: break-word; font-size: 13px; }
 .row .meta { color: var(--faint); font-size: 12px; white-space: nowrap; }
+/* Long details (kinds and line numbers) go under the name instead of squeezing it. */
+.list button.row.stacked { flex-direction: column; align-items: flex-start; gap: 2px; }
+.row.stacked .meta { white-space: normal; }
 
 .location { color: var(--muted); font-size: 12px; font-family: var(--mono); word-break: break-all; }
 
@@ -740,6 +756,7 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
 .swatch.round { border-radius: 50%; }
 .swatch.diamond { transform: rotate(45deg) scale(0.85); border-radius: 1px; }
 .swatch.ring { background: transparent; border: 2.5px solid var(--swatch); border-radius: 50%; }
+.swatch.faded-swatch { opacity: 0.4; }
 
 .line {
   width: 18px;

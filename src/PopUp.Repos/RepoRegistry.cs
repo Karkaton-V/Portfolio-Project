@@ -9,6 +9,7 @@ namespace PopUp.Repos;
 /// <param name="GitHub">The GitHub repository it was cloned from (owner/name), if any.</param>
 /// <param name="Managed">True when PopUp cloned it into its own folder (and may delete it on removal).</param>
 /// <param name="AnalyzedRemotely">True when the last analysis ran on GitHub's servers rather than this computer.</param>
+/// <param name="Branch">The branch last pulled and analyzed, when it isn't the repository's default (see Pull Xtra).</param>
 public sealed record RegisteredRepo(
     string Name,
     string Path,
@@ -17,7 +18,8 @@ public sealed record RegisteredRepo(
     DateTimeOffset AddedAt,
     DateTimeOffset? SyncedAt = null,
     DateTimeOffset? AnalyzedAt = null,
-    bool AnalyzedRemotely = false);
+    bool AnalyzedRemotely = false,
+    string? Branch = null);
 
 /// <summary>A registry entry couldn't be added or found. The message says why.</summary>
 public sealed class RepoRegistryException(string message) : Exception(message);

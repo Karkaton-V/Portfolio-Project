@@ -28,6 +28,8 @@ public sealed class RemoteAnalyzerTests : IDisposable
 
         public string? DispatchedRef { get; private set; }
 
+        public string? DispatchedBranch { get; private set; }
+
         protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
             var path = request.RequestUri!.AbsolutePath;
@@ -42,6 +44,7 @@ public sealed class RemoteAnalyzerTests : IDisposable
                 using var body = JsonDocument.Parse(await request.Content!.ReadAsStringAsync(cancellationToken));
                 DispatchedRef = body.RootElement.GetProperty("ref").GetString();
                 DispatchedRepository = body.RootElement.GetProperty("inputs").GetProperty("repository").GetString();
+                DispatchedBranch = body.RootElement.GetProperty("inputs").TryGetProperty("ref", out var branch) ? branch.GetString() : null;
                 _requestId = body.RootElement.GetProperty("inputs").GetProperty("request_id").GetString();
                 return new HttpResponseMessage(HttpStatusCode.NoContent);
             }
@@ -125,9 +128,21 @@ public sealed class RemoteAnalyzerTests : IDisposable
 
         Assert.Equal("jasontaylordev/CleanArchitecture", github.DispatchedRepository);
         Assert.Equal("main", github.DispatchedRef); // dispatched on the runner's default branch
+        Assert.Null(github.DispatchedBranch); // no branch asked for: the target's default
         Assert.Equal("<!doctype html><title>remote report</title>", await File.ReadAllTextAsync(report));
         Assert.EndsWith("/actions/runs/42", runUrl); // found our run, not the other one listed first
         Assert.Contains(progress.All, m => m.Contains("Running on GitHub: Analyze"));
+    }
+
+    [Fact]
+    public async Task Asks_the_workflow_for_a_specific_branch()
+    {
+        var github = new FakeActions();
+
+        await Analyzer(github).AnalyzeAsync(Target, Path.Combine(_folder, "r.html"), new Messages(), branch: "feature/login");
+
+        Assert.Equal("feature/login", github.DispatchedBranch);
+        Assert.Equal("main", github.DispatchedRef); // the workflow itself still runs from the runner's default branch
     }
 
     [Fact]

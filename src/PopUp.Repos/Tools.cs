@@ -68,6 +68,83 @@ public static class Tools
     public static Task PullAsync(string repository, CancellationToken cancellationToken = default) =>
         RunAsync("git", ["pull", "--ff-only", "--quiet"], repository, cancellationToken);
 
+    /// <summary>The commit a clone has checked out.</summary>
+    public static async Task<string> HeadAsync(string repository, CancellationToken cancellationToken = default) =>
+        (await RunAsync("git", ["rev-parse", "HEAD"], repository, cancellationToken)).Trim();
+
+    /// <summary>The branch a clone has checked out, or null for a detached checkout.</summary>
+    public static async Task<string?> CurrentBranchAsync(string repository, CancellationToken cancellationToken = default)
+    {
+        var name = (await RunAsync("git", ["rev-parse", "--abbrev-ref", "HEAD"], repository, cancellationToken)).Trim();
+        return name == "HEAD" ? null : name;
+    }
+
+    /// <summary>The default branch of a clone's <c>origin</c> on GitHub, asked of GitHub itself (no API token needed).</summary>
+    public static async Task<string> DefaultBranchAsync(string repository, CancellationToken cancellationToken = default)
+    {
+        // Prints e.g. "ref: refs/heads/main<TAB>HEAD" followed by the commit line.
+        var output = await RunAsync("git", ["ls-remote", "--symref", "origin", "HEAD"], repository, cancellationToken);
+        const string Prefix = "ref: refs/heads/";
+        var line = output.Split('\n').FirstOrDefault(l => l.StartsWith(Prefix, StringComparison.Ordinal))
+            ?? throw new ToolException("git ls-remote didn't report origin's default branch.");
+        return line[Prefix.Length..].Split('\t')[0].Trim();
+    }
+
+    public static async Task<bool> HasUncommittedChangesAsync(string repository, CancellationToken cancellationToken = default) =>
+        (await RunAsync("git", ["status", "--porcelain"], repository, cancellationToken)).Trim().Length > 0;
+
+    /// <summary>
+    /// Checks out the newest commit of <paramref name="branch"/> from <c>origin</c>. In a copy PopUp owns, the
+    /// local branch is simply made to match GitHub (fetching only that commit). In someone's own clone the
+    /// branch is switched to and fast-forwarded, which fails instead of discarding commits that aren't on GitHub;
+    /// check <see cref="HasUncommittedChangesAsync"/> first, since switching branches carries changes along.
+    /// </summary>
+    public static async Task CheckOutLatestAsync(string repository, string branch, bool ownedByPopUp, CancellationToken cancellationToken = default)
+    {
+        if (!IsSafeBranchName(branch))
+        {
+            throw new ToolException($"'{branch}' isn't a branch name PopUp can use.");
+        }
+
+        var remoteRef = $"refs/remotes/origin/{branch}";
+        var refspec = $"+refs/heads/{branch}:{remoteRef}";
+        if (ownedByPopUp)
+        {
+            await RunAsync("git", ["fetch", "--quiet", "--depth", "1", "origin", refspec], repository, cancellationToken);
+            await RunAsync("git", ["checkout", "--quiet", "--force", "-B", branch, remoteRef], repository, cancellationToken);
+            return;
+        }
+
+        await RunAsync("git", ["fetch", "--quiet", "origin", refspec], repository, cancellationToken);
+        if (await CurrentBranchAsync(repository, cancellationToken) != branch)
+        {
+            var hasLocalBranch = true;
+            try
+            {
+                await RunAsync("git", ["rev-parse", "--verify", "--quiet", $"refs/heads/{branch}"], repository, cancellationToken);
+            }
+            catch (ToolException)
+            {
+                hasLocalBranch = false;
+            }
+
+            await RunAsync("git", hasLocalBranch
+                ? ["switch", "--quiet", branch]
+                : ["switch", "--quiet", "--create", branch, "--track", remoteRef], repository, cancellationToken);
+        }
+
+        await RunAsync("git", ["merge", "--quiet", "--ff-only", remoteRef], repository, cancellationToken);
+    }
+
+    /// <summary>
+    /// Git's own rules for branch names, enough that a name can't be read as an option or a revision range.
+    /// </summary>
+    internal static bool IsSafeBranchName(string branch) =>
+        branch.Length > 0
+        && !branch.StartsWith('-') && !branch.StartsWith('/') && !branch.EndsWith('/') && !branch.EndsWith(".lock", StringComparison.Ordinal)
+        && !branch.Contains("..", StringComparison.Ordinal) && !branch.Contains("@{", StringComparison.Ordinal)
+        && !branch.Any(c => char.IsControl(c) || char.IsWhiteSpace(c) || c is '~' or '^' or ':' or '?' or '*' or '[' or '\\');
+
     /// <summary>
     /// Restores NuGet packages so referenced library types resolve during analysis. Like analysis itself, this
     /// evaluates the repository's MSBuild files, so only do it for repositories you trust.

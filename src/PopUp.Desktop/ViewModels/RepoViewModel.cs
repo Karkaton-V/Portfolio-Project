@@ -26,7 +26,7 @@ public sealed class RepoViewModel(RegisteredRepo repo, string reportsDirectory) 
     public bool HasReport => File.Exists(ReportPath);
 
     public string AnalyzedText => Repo.AnalyzedAt is { } at
-        ? $"Analyzed {(Repo.AnalyzedRemotely ? "on GitHub " : "")}{Format.Relative(at)}"
+        ? $"Analyzed {(Repo.AnalyzedRemotely ? "on GitHub " : "")}{Format.Relative(at)}{(Repo.Branch is { } branch ? $" · {branch}" : "")}"
         : "Not analyzed yet";
 
     public void Update(RegisteredRepo repo)

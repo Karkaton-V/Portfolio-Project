@@ -90,6 +90,25 @@ public partial class MainWindow : Window
         }
     }
 
+    /// <summary>Pull Xtra: pick one of the selected GitHub repository's branches to pull and analyze.</summary>
+    private async void PullXtra_Click(object sender, RoutedEventArgs e)
+    {
+        if (_viewModel.SelectedRepo is not { IsGitHub: true } repo)
+        {
+            return;
+        }
+
+        var picker = new BranchPickerWindow(new BranchPickerViewModel(
+            repo.Repo.GitHub ?? repo.Name, repo.Repo.AnalyzedAt is not null, repo.Repo.Branch, token => _viewModel.ListBranchesAsync(repo, token)))
+        {
+            Owner = this,
+        };
+        if (picker.ShowDialog() == true)
+        {
+            await _viewModel.PullBranchAsync(picker.ChosenBranch);
+        }
+    }
+
     /// <summary>Points the selected repository at the folder where it lives on this computer.</summary>
     private async void Locate_Click(object sender, RoutedEventArgs e)
     {

@@ -80,8 +80,15 @@ you can switch between projects without remembering paths or commands.
   it here fails, say because the .NET SDK is missing), PopUp runs the analysis on GitHub's servers instead:
   it starts the [`popup-analyze`](.github/workflows/popup-analyze.yml) workflow, follows its progress,
   and downloads the report it produces. If both fail, the app shows both errors.
-- **Analyze** (F5) refreshes the report, **Pull latest** updates a downloaded copy first, and **Remove** can
-  also delete a copy PopUp downloaded (never a folder you added yourself).
+- **Analyze** (F5) re-analyzes a folder. For a GitHub repository the same button is **Pull Latest**: it pulls the
+  newest commit of the default branch, then analyzes it. **Pull Xtra** opens a list of the repository's branches
+  (the default and the last one analyzed are marked); pick one and PopUp pulls that branch and analyzes it. The
+  sidebar and the report header then name the branch, until Pull Latest goes back to the default.
+- A copy PopUp downloaded is simply made to match GitHub. A folder of your own (one GitHub Desktop manages, say) is
+  only switched or pulled when it has no uncommitted changes, and only fast-forwarded, so commits you haven't pushed
+  are never thrown away; if it can't be pulled, PopUp says why. Offline, Pull Latest analyzes the copy on this
+  computer and says so. A repository with no copy here is analyzed on GitHub's servers, at the branch you picked.
+- **Remove** can also delete a copy PopUp downloaded (never a folder you added yourself).
 
 Everything is kept in `%USERPROFILE%\.popup`: the list (`repos.json`), downloaded copies (`repos\owner\name`),
 and the latest report for each repository. If the list can't be read, the app offers to set it aside and start
@@ -165,7 +172,7 @@ Direct dependents
 | `cycles [input]` | `--level namespace` (default) or `--level type` |
 | `impact [input] <type>` | `--depth <n>` limit the steps; `--kinds Calls,Implements` follow only some dependency kinds |
 | `check [input]` | `--sarif <file>`; `--path-prefix <dir>` |
-| `report [input]` | `-o <file>` (default `popup-report.html`); `--title <text>`; `--theme atlas\|nord\|solarized\|contrast` |
+| `report [input]` | `-o <file>` (default `popup-report.html`); `--title <text>`; `--theme atlas\|nord\|solarized\|contrast`; `--branch <name>` names a non-default branch in the header |
 | `repos` | list saved repositories; `repos add <folder\|owner/name>` (`--name`, `--clone` to download even if a copy exists, `--no-restore`); `repos remove <name>`; `repos locate <name> <folder>`; `repos pull <name>`; `repos github` (`--all` to include non-C#) |
 | every command | `--config <file>` (default: found from the input's folder up); `--exclude <globs>` comma-separated project patterns |
 
@@ -271,6 +278,9 @@ all inlined, so it opens offline, with no server, and can be attached to a CI ru
   layers is visible as a line between colors. Red is kept out of the palette because it means "cycle".
 - **Type view**: double-click a namespace to see its types, plus faded neighbors from other namespaces for context.
   Shape shows the kind of type; dashed edges are inheritance or interface implementation.
+- **File view**: right-click any project, namespace, or type to see the source files inside it. Each file is a card,
+  with arrows to the code it pulls in and from the code that depends on it (outside code is drawn faded). Click a
+  file for exactly what it pulls in, down to the line numbers, and what's pushed onto it.
 - **Hover** a node to preview its connections; **click** to pin the selection. Press `/` to search.
 - **Themes**: four color themes (Atlas, Nord, Solarized, High contrast), each with light and dark variants, plus
   an Auto/Light/Dark switch. The report opens in the theme set by `--theme` or `popup.json`. A viewer's own

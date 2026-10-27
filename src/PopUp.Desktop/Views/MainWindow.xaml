@@ -53,16 +53,21 @@
 
                 <!-- Actions for the selected repository -->
                 <StackPanel DockPanel.Dock="Bottom" Margin="18,10,18,18">
-                    <Grid>
+                    <!-- A folder: one wide Analyze. A GitHub repository: Pull Latest (default branch) and Pull Xtra (pick a branch). -->
+                    <Button Content="Analyze" Style="{DynamicResource AccentButtonStyle}" HorizontalAlignment="Stretch"
+                            Command="{Binding AnalyzeCommand}" ToolTip="Analyze again (F5)"
+                            Visibility="{Binding IsFolderSelected, Converter={StaticResource BoolToVisibility}}" />
+                    <Grid Visibility="{Binding IsGitHubSelected, Converter={StaticResource BoolToVisibility}}">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*" />
                             <ColumnDefinition Width="8" />
                             <ColumnDefinition Width="*" />
                         </Grid.ColumnDefinitions>
-                        <Button Grid.Column="0" Content="Analyze" Style="{DynamicResource AccentButtonStyle}"
-                                HorizontalAlignment="Stretch" Command="{Binding AnalyzeCommand}" ToolTip="Analyze again (F5)" />
-                        <Button Grid.Column="2" Content="Pull latest" HorizontalAlignment="Stretch" Command="{Binding SyncCommand}"
-                                ToolTip="Pull the latest commits from GitHub, then analyze" />
+                        <Button Grid.Column="0" Content="Pull Latest" Style="{DynamicResource AccentButtonStyle}"
+                                HorizontalAlignment="Stretch" Command="{Binding AnalyzeCommand}"
+                                ToolTip="Pull the newest commit of the default branch from GitHub, then analyze it (F5)" />
+                        <Button Grid.Column="2" Content="Pull Xtra" HorizontalAlignment="Stretch" Click="PullXtra_Click"
+                                IsEnabled="{Binding CanPullXtra}" ToolTip="Pick a branch to pull and analyze" />
                     </Grid>
                     <Grid Margin="0,8,0,0">
                         <Grid.ColumnDefinitions>

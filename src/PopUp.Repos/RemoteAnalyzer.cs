@@ -27,15 +27,19 @@ public sealed class RemoteAnalyzer(GitHubClient client, GitHubRepoRef runner)
         GitHubRepoRef target,
         string reportPath,
         IProgress<string> progress,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        string? branch = null)
     {
         // GitHub doesn't return the run it starts, so tag the request and look for the tag in run titles.
         var requestId = Guid.NewGuid().ToString("N")[..12];
-        var branch = await client.GetDefaultBranchAsync(runner, cancellationToken);
+        // The workflow runs from the runner repository's default branch; `branch` is the one to analyze.
+        var runnerBranch = await client.GetDefaultBranchAsync(runner, cancellationToken);
 
-        progress.Report($"Asking GitHub to analyze {target.FullName}…");
-        await client.DispatchWorkflowAsync(runner, WorkflowFile, branch,
-            new Dictionary<string, string> { ["repository"] = target.FullName, ["request_id"] = requestId }, cancellationToken);
+        progress.Report(branch is null ? $"Asking GitHub to analyze {target.FullName}…" : $"Asking GitHub to analyze {target.FullName} at {branch}…");
+        await client.DispatchWorkflowAsync(runner, WorkflowFile, runnerBranch,
+            branch is null
+                ? new Dictionary<string, string> { ["repository"] = target.FullName, ["request_id"] = requestId }
+                : new Dictionary<string, string> { ["repository"] = target.FullName, ["request_id"] = requestId, ["ref"] = branch }, cancellationToken);
 
         WorkflowRun? run = null;
         for (var attempt = 0; attempt < StartAttempts && run is null; attempt++)

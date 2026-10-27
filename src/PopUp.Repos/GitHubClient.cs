@@ -73,6 +73,26 @@ public sealed partial class GitHubClient(HttpClient http, string token)
         return document.RootElement.GetProperty("login").GetString() ?? "";
     }
 
+    /// <summary>Every branch of a repository, by name, in GitHub's order.</summary>
+    public async Task<IReadOnlyList<string>> ListBranchesAsync(GitHubRepoRef repo, CancellationToken cancellationToken = default)
+    {
+        var branches = new List<string>();
+        Uri? next = new(ApiBase, $"repos/{repo.FullName}/branches?per_page=100");
+
+        for (var page = 0; next is not null && page < MaxPages; page++)
+        {
+            using var response = await SendAsync(next, cancellationToken,
+                notFound: $"{repo.FullName} doesn't exist, or this account can't see it.");
+            using var document = await JsonDocument.ParseAsync(await response.Content.ReadAsStreamAsync(cancellationToken), cancellationToken: cancellationToken);
+            branches.AddRange(document.RootElement.EnumerateArray()
+                .Select(branch => branch.GetProperty("name").GetString())
+                .OfType<string>());
+            next = NextPage(response);
+        }
+
+        return branches;
+    }
+
     public async Task<string> GetDefaultBranchAsync(GitHubRepoRef repo, CancellationToken cancellationToken = default)
     {
         using var document = await GetJsonAsync(new Uri(ApiBase, $"repos/{repo.FullName}"), cancellationToken,

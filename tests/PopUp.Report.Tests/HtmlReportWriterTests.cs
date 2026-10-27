@@ -119,6 +119,8 @@ public class HtmlReportWriterTests
         Assert.Equal("https://github.com/Karkaton-V/FlowerDefense", source.GetProperty("link").GetString());
 
         Assert.False(EmbeddedData(Write(Graph)).TryGetProperty("source", out _));
+        Assert.False(EmbeddedData(Write(Graph)).TryGetProperty("branch", out _));
+        Assert.Equal("feature/login", EmbeddedData(HtmlReportWriter.Write(Graph, new ReportOptions { Title = "Shop", Branch = "feature/login" })).GetProperty("branch").GetString());
     }
 
     [Fact]

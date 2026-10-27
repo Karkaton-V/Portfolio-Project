@@ -50,7 +50,7 @@ static int PrintUsage(TextWriter writer, int exitCode)
           popup cycles  [input] [--level namespace|type]
           popup impact  [input] <type> [--depth <n>] [--kinds <kind,...>]
           popup check   [input] [--sarif <file>] [--path-prefix <dir>]
-          popup report  [input] [-o <report.html>] [--title <text>] [--theme <name>]
+          popup report  [input] [-o <report.html>] [--title <text>] [--theme <name>] [--branch <name>]
 
         Saved repos (shared with the PopUp desktop app):
           popup repos                       List saved repos

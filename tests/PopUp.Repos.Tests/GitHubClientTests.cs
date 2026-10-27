@@ -42,6 +42,21 @@ public class GitHubClientTests
         """;
 
     [Fact]
+    public async Task Lists_every_page_of_a_repositorys_branches()
+    {
+        var github = new FakeGitHub(request => request.RequestUri!.Query.Contains("page=2")
+            ? Json("""[ { "name": "release/1.0", "commit": { "sha": "c" } } ]""")
+            : Json("""[ { "name": "main", "commit": { "sha": "a" } }, { "name": "feature/login", "commit": { "sha": "b" } } ]""",
+                nextPage: "https://api.github.com/repos/Karkaton-V/Portfolio-Project/branches?per_page=100&page=2"));
+        var client = new GitHubClient(new HttpClient(github), "test-token");
+
+        var branches = await client.ListBranchesAsync(new GitHubRepoRef("Karkaton-V", "Portfolio-Project"));
+
+        Assert.Equal(["main", "feature/login", "release/1.0"], branches);
+        Assert.Equal("/repos/Karkaton-V/Portfolio-Project/branches", github.Requests[0].RequestUri!.AbsolutePath);
+    }
+
+    [Fact]
     public async Task Lists_every_page_of_the_users_repositories()
     {
         var github = new FakeGitHub(request => request.RequestUri!.Query.Contains("page=2")
