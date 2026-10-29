@@ -89,12 +89,12 @@ public sealed class RemoteAnalyzer(GitHubClient client, GitHubRepoRef runner)
 
 /// <summary>
 /// User settings, in <c>settings.json</c> next to the saved repositories. Today: which repository runs the
-/// GitHub analysis workflow (PopUp's own, unless you point it at a fork with <c>{ "runner": "you/Portfolio-Project" }</c>
+/// GitHub analysis workflow (PopUp's own, unless you point it at a fork with <c>{ "runner": "you/Popup" }</c>
 /// or the POPUP_RUNNER environment variable).
 /// </summary>
 public sealed record PopUpSettings(string Runner)
 {
-    public const string DefaultRunner = "Karkaton-V/Portfolio-Project";
+    public const string DefaultRunner = "Karkaton-V/Popup";
 
     public static PopUpSettings Load(string home)
     {

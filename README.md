@@ -1,6 +1,6 @@
 # PopUp
 
-[![CI](https://github.com/Karkaton-V/Portfolio-Project/actions/workflows/ci.yml/badge.svg)](https://github.com/Karkaton-V/Portfolio-Project/actions/workflows/ci.yml)
+[![CI](https://github.com/Karkaton-V/Popup/actions/workflows/ci.yml/badge.svg)](https://github.com/Karkaton-V/Popup/actions/workflows/ci.yml)
 
 A command-line tool and Windows desktop app that map the dependencies inside a C# solution using the Roslyn compiler APIs, then
 finds dependency cycles, answers "what could this change affect?", enforces architecture rules in CI, and
@@ -98,7 +98,7 @@ GitHub access uses your existing sign-in: the `GH_TOKEN` or `GITHUB_TOKEN` envir
 [GitHub CLI](https://cli.github.com/) (`gh auth login`). PopUp never saves the token.
 
 **About the GitHub fallback.** The workflow runs in a "runner" repository you control, by default
-`Karkaton-V/Portfolio-Project`. To use your own, fork this repository and set `{ "runner": "you/Portfolio-Project" }`
+`Karkaton-V/Popup`. To use your own, fork this repository and set `{ "runner": "you/Popup" }`
 in `.popup\settings.json` (or the `POPUP_RUNNER` environment variable). The run uses that repository's
 Actions minutes. It can read public repositories and the runner itself; to analyze your other private
 repositories, add a fine-grained token with read access to them as the runner's `POPUP_READ_TOKEN` secret.
@@ -117,7 +117,7 @@ to analyze solutions locally, plus the WebView2 runtime that comes with Windows 
 The same list is available from the command line, and any command takes `@name` in place of a path:
 
 ```bash
-popup repos add Karkaton-V/Portfolio-Project   # uses a clone already on this PC, or downloads one
+popup repos add Karkaton-V/Popup   # uses a clone already on this PC, or downloads one
 popup repos add ../MyApp --name myapp
 popup repos                                     # list them
 popup report @myapp
